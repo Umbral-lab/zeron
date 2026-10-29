@@ -88,3 +88,16 @@ unresolved operational prerequisites. The original state template below its
 bootstrap annotation is not evidence of an executed nightly run. Imported
 instruction bytes are covered by `ops/bootstrap/import-manifest.json`.
 Unattended inference remains disabled until OPS-001 is independently verified.
+
+## Cross-machine handoff through GitHub
+
+Worker A runs on another computer. Push task branches to the authorized fork and
+open a pull request for each reviewable handoff; a pushed branch alone is not a
+handoff. Keep PR descriptions current with exact revisions, scope, actual test
+evidence, review status, blockers and the next action expected from A. Use linked
+issues for task status, findings and operator decisions, updating them as the
+state changes. Repository-local mailboxes are supporting artifacts, not the sole
+communication channel. If issues are disabled or unavailable, state that limit
+in the PR rather than silently substituting local-only records. Do not claim a
+platform review or agent identity that the authenticated GitHub account does not
+provide. Remote publication does not imply approval or authorize integration.
