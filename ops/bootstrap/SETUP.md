@@ -61,6 +61,17 @@ NOT RUN: product builds, Rust suites, real UI baselines, OPS-001 dry-run matrix,
 provider model-availability probes, worker concurrency/lease tests, independent
 review, scheduled tick. No synthetic approval or product acceptance is implied.
 
+## Owner authorization for automation
+
+The owner explicitly approved automations after supplying the worker prompts.
+Permission to configure the planned automation is therefore not an outstanding
+blocker. This approval does not establish that a functioning launcher exists or
+change the documented model/budget limits. The only installed job on B's host is
+currently a paused, script-only diagnostic, not a nightly worker launcher.
+The controller host and cross-machine handoff mechanism must be established with
+A before activating worker execution; do not create independent competing
+schedulers or present the diagnostic as working development automation.
+
 ## Required next inputs and work
 
 1. RESOLVED: the owner supplied `prompts.zip`. All four Markdown files are installed byte-for-byte under `docs/agent-prompts/`: `00_BOOTSTRAP.md` and `01_BUILDER.md` belong to A; `02_GPT_WORKER.md` is B/Terra and `03_SOL_AUDIT.md` is B/Sol. B uses the prompt matching the launcher's actual model selection; receiving these files does not admit an audit or authorize model/schedule changes.
