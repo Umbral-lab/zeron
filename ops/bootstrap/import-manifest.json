@@ -1,0 +1,69 @@
+{
+  "base_revision": "369d42815190ea6c4865c92dc060c54d790f4dcd",
+  "verification": "Original bytes are retained as a prefix; any setup additions follow them.",
+  "excluded": [
+    "repo/.DS_Store (Finder metadata, not instructions)"
+  ],
+  "files": [
+    {
+      "source": "repo/AGENTS.md",
+      "destination": "AGENTS.md",
+      "original_bytes": 10361,
+      "sha256": "dd6780cfced730276c8e717d3e94f9cc694bb7f38487890987d15c9d8ad2dea7"
+    },
+    {
+      "source": "repo/docs/ARCHITECTURE_AND_ACCEPTANCE.md",
+      "destination": "docs/ARCHITECTURE_AND_ACCEPTANCE.md",
+      "original_bytes": 11754,
+      "sha256": "cfde6974aca0067daf70c2564beb249ce566bd30f5b366dd1b107f8ada796a7d"
+    },
+    {
+      "source": "repo/docs/MODEL_BUDGET.md",
+      "destination": "docs/MODEL_BUDGET.md",
+      "original_bytes": 9470,
+      "sha256": "359c166c6835a33a2a9a1eb6af84f7fa68a89e923942dc3a2803c45fd61387cc"
+    },
+    {
+      "source": "repo/docs/OPERATIONS.md",
+      "destination": "docs/OPERATIONS.md",
+      "original_bytes": 11485,
+      "sha256": "30c4d1d49217a5ec8ed77b0cc3157c30f87c823502d47289078fe714e3d3ac19"
+    },
+    {
+      "source": "repo/docs/PROJECT_CHARTER.md",
+      "destination": "docs/PROJECT_CHARTER.md",
+      "original_bytes": 7462,
+      "sha256": "5f95a1ab2b7bfb02ffb4d667a34a9250dde3a33f7d97ec4cd69076bd06ef5d5b"
+    },
+    {
+      "source": "repo/docs/ROADMAP.md",
+      "destination": "docs/ROADMAP.md",
+      "original_bytes": 7352,
+      "sha256": "a03b93e7cfccb287aea0a3200a212b55a7ea419dc767bbd7bb6bf79225f4369b"
+    },
+    {
+      "source": "repo/docs/UPSTREAM_RESEARCH.md",
+      "destination": "docs/UPSTREAM_RESEARCH.md",
+      "original_bytes": 6238,
+      "sha256": "38885c0715c9e0f3d2412ffed5c68bb7273a503d68fff0b086e1d5ae501a5bfb"
+    },
+    {
+      "source": "repo/ops/STATE.md",
+      "destination": "ops/STATE.md",
+      "original_bytes": 2273,
+      "sha256": "0da4a6d58479a909aaacd28bd44b1112c3acaba56598e587fea8ef09223ee30a"
+    },
+    {
+      "source": "repo/ops/TEMPLATES.md",
+      "destination": "ops/TEMPLATES.md",
+      "original_bytes": 4831,
+      "sha256": "5ee03423076bccb9da40bc197716aa387e4d7714e67f7c75c29874deba875e57"
+    },
+    {
+      "source": "repo/ops/policy.json",
+      "destination": "ops/policy.json",
+      "original_bytes": 3995,
+      "sha256": "17f90f115c8ce227963fb20a3c6cdde7eddf04b2a94892c939a85cc0d442345a"
+    }
+  ]
+}

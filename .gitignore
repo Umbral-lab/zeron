@@ -16,3 +16,5 @@ CLAUDE.md
 /scripts/**/__pycache__/
 .dev.vars
 .dev.vars.*
+# Instruction-kit staging is local-only; merge its contents into canonical paths.
+/repo/

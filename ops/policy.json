@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "purpose": "Project policy specification; NOT a native Hermes configuration or an implemented guard",
+  "activation": "Requires operator mapping to verified runtime controls and a successful dry run",
+  "schedule": {
+    "timezone": "Europe/Madrid",
+    "start_local": "01:00",
+    "end_local": "05:00",
+    "maximum_elapsed_minutes_from_nominal_start": 240,
+    "late_start_grace_minutes": 15,
+    "one_run_per_project_local_date": true,
+    "freeze_minutes_before_deadline": 60,
+    "integration_minutes_before_deadline": 15,
+    "shutdown_minutes_before_deadline": 5
+  },
+  "concurrency": {
+    "model_workers": 2,
+    "gpt_jobs": 1,
+    "active_tasks_per_worker": 1,
+    "recursive_delegation": false,
+    "integration_writers": 1
+  },
+  "models": {
+    "worker_a_requested_label": "qwen 3.8 flash next",
+    "worker_a_runtime_identifier": null,
+    "worker_b_small_task_requested_model": "gpt-6.1-terra",
+    "worker_b_audit_requested_model": "gpt-6.1-sol",
+    "provider_routes": "Resolve from owner configuration; never guess or silently substitute",
+    "terra_reasoning_default": "low",
+    "sol_reasoning_default": "medium",
+    "premium_speed": false,
+    "automatic_paid_fallback": false
+  },
+  "worker_a_caps": {
+    "night_model_requests": 180,
+    "task_model_requests": 40,
+    "task_minutes": 60,
+    "failed_approaches_before_replan": 2
+  },
+  "worker_b_caps": {
+    "night_model_requests": 16,
+    "night_summed_job_wall_clock_minutes": 40,
+    "job_time_includes_tools_and_waiting": true,
+    "night_aggregate_input_tokens": 100000,
+    "night_aggregate_generated_tokens": 12000,
+    "request_input_tokens": 16000,
+    "request_max_generated_tokens": 3000,
+    "terra": {
+      "night_jobs": 2,
+      "job_requests": 4,
+      "job_minutes": 10,
+      "job_aggregate_input_tokens": 20000,
+      "job_aggregate_generated_tokens": 2000
+    },
+    "sol": {
+      "night_audits": 1,
+      "audit_requests": 8,
+      "audit_minutes": 20,
+      "audit_aggregate_input_tokens": 60000,
+      "audit_aggregate_generated_tokens": 8000
+    },
+    "unknown_quota": {
+      "mode": "audit_only",
+      "alternative_owner_selected_mode": "stop_gpt",
+      "terra_jobs": 0,
+      "sol_audits": 1,
+      "requests": 4,
+      "minutes": 10,
+      "aggregate_input_tokens": 40000,
+      "aggregate_generated_tokens": 4000
+    }
+  },
+  "quota_admission": {
+    "minimum_remaining_percent_must_exceed": 30,
+    "stop_after_short_window_observed_increase_percentage_points": 10,
+    "stop_after_weekly_window_observed_increase_percentage_points": 2,
+    "maximum_reading_age_seconds": 300,
+    "cross_window_percentage_subtraction_allowed": false,
+    "night_counters_reset_on_quota_reset": false,
+    "percentage_thresholds_are_not_hard_consumption_guarantees": true,
+    "known_block_survives_unknown_readings": true,
+    "clear_block_requires_verified_recovery_or_authorized_resolution": true,
+    "night_consumption_breach_blocks_entire_run": true,
+    "unknown_mode_tightens_remaining_caps_without_refill": true
+  },
+  "accounting": {
+    "include_auxiliary_calls_and_retries": true,
+    "request_unit": "outbound provider attempt, including SDK retries and reconnect dispatches",
+    "include_repeated_context_and_tool_schemas": true,
+    "include_reported_reasoning_tokens": true,
+    "reserve_sol_before_terra": true,
+    "persist_before_dispatch": true,
+    "refund_unknown_outcome": false,
+    "restart_resets_counters": false,
+    "unobservable_metrics_reported_as_unknown": true
+  },
+  "authority": {
+    "owner_only_budget_increases": true,
+    "effective_policy_is_immutable_operator_owned_snapshot": true,
+    "repository_policy_edits_change_current_run": false,
+    "owner_only_provider_and_permission_expansion": true,
+    "remote_write_authority": "Verify and record configured scope before use",
+    "release_publication": "Separate owner authorization",
+    "external_report_delivery": "Only to an explicitly configured authorized destination"
+  }
+}
