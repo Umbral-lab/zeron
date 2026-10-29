@@ -11,7 +11,7 @@
 - Risk: R0 instruction import; operational script/schedule changes require R2 scrutiny. No model-launching or enforcement code was implemented.
 - Dependencies: owner-supplied kit; installed Hermes. Runtime activation additionally requires the missing inputs below.
 - Scope: imported AGENTS/docs/ops, this bootstrap record, scripts/ops diagnostics, repository-local Git identity, and a paused script-only job in the zeron Hermes profile.
-- Non-goals: product changes, full M0 build/UI baseline, implementing a budget controller, running an audit without a candidate, changing models, live unattended execution, remote publication.
+- Non-goals: product changes, full M0 build/UI baseline, implementing a budget controller, running an audit without a candidate, changing models, live unattended execution, release publication.
 - Acceptance: original instruction bytes retained, inherited files intact, repo/ absent and excluded from Git, identity verified, deterministic diagnostic exercised, unattended inference not enabled.
 - Allocation: supervised setup only; no launcher-supplied nightly budget, run ID or deadline exists. Stop at this checkpoint rather than starting implementation or a nightly audit.
 - Rollback: preserve this commit/artifact, then revert it after coordination; revert local Git identity only to an operator-selected identity. Remove only job `31ab9d0c0fe6` and its named wrapper if abandoning setup. Never reset the checkout or delete unpreserved work.
@@ -65,7 +65,7 @@ review, scheduled tick. No synthetic approval or product acceptance is implied.
 
 1. Supply `docs/agent-prompts/02_GPT_WORKER.md` and `03_SOL_AUDIT.md`; neither existed in the kit or fork. A supervised bootstrap prompt was referenced but also not supplied. Do not invent the missing owner instructions.
 2. Operator must resolve A's exact configured Qwen provider/model identifier; no default-profile inspection or guessed substitution was performed.
-3. A/owner independently reviews B-authored diagnostic code and scheduler setup. B cannot independently approve its own setup with a Sol identity switch. Keep remote publication pending review.
+3. A/owner independently reviews B-authored diagnostic code and scheduler setup. B cannot independently approve its own setup with a Sol identity switch. Independent review remains required for acceptance and activation, not for publishing the handoff commit. The owner clarified that A runs on another computer: keep the authorized GitHub remote updated so A can fetch work and review artifacts. Use task branches after bootstrap; do not treat pushing a branch as approval or permission to integrate it.
 4. Assign OPS-001 to A with a bounded task packet, budget/deadline and operator-owned effective policy; verify request-boundary metering including SDK/auxiliary calls, output limits, durable counters, fallback pins, locks/fencing, quota blocks, shutdown, DST and restart behavior against OPERATIONS.md's nine cases. This is a separate R2 implementation if no controller exists.
 5. Verify supported Europe/Madrid schedule mapping, isolated A/B/integrator worktrees, actual model availability and fresh quota telemetry. Only the operator may activate reviewed controls and inference jobs. Do not simply resume this diagnostic expecting workers to run.
 6. A then owns canonical state, queue and integration. B writes immutable review artifacts under ops/mailboxes/worker-b/ on B's branch/worktree. A must supply the frozen exact base/head candidate and evidence before B's bounded daily Sol audit.
