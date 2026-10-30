@@ -1,0 +1,278 @@
+{
+ "zeron-voice-session": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-orb": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-veil": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-term": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-term-link": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-voice-media": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-audio": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-proto": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-preview": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-doc": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-sync": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-harness": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-engine": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-rpc": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-update": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-ui": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-notify": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-syntax": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-markdown": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-mobile": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-client": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-theme": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-mcp": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-text": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zatex": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-visual": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "zeron-visual-gpu": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "loro": {
+  "license": "MIT",
+  "version": null
+ },
+ "loro-protocol": {
+  "license": "MIT",
+  "version": null
+ },
+ "gpui": {
+  "license": "Apache-2.0",
+  "version": null
+ },
+ "gpui_platform": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "gpui_tokio": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "gpui-base": {
+  "license": null,
+  "error": "HTTP Error 404: Not Found"
+ },
+ "similar": {
+  "license": "Apache-2.0",
+  "version": null
+ },
+ "tokio": {
+  "license": "MIT",
+  "version": null
+ },
+ "tokio-util": {
+  "license": "MIT",
+  "version": null
+ },
+ "libc": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "gethostname": {
+  "license": "Apache-2.0",
+  "version": null
+ },
+ "tokio-tungstenite": {
+  "license": "MIT",
+  "version": null
+ },
+ "futures": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "async-trait": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "serde": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "serde_json": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "json5": {
+  "license": "MIT",
+  "version": null
+ },
+ "deser-hjson": {
+  "license": "MIT",
+  "version": null
+ },
+ "plist": {
+  "license": "MIT",
+  "version": null
+ },
+ "uuid": {
+  "license": "Apache-2.0 OR MIT",
+  "version": null
+ },
+ "rusqlite": {
+  "license": "MIT",
+  "version": null
+ },
+ "mimalloc": {
+  "license": "MIT",
+  "version": null
+ },
+ "anyhow": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "tempfile": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "thiserror": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "tracing": {
+  "license": "MIT",
+  "version": null
+ },
+ "tracing-subscriber": {
+  "license": "MIT",
+  "version": null
+ },
+ "clap": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "chrono": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "sha2": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "zip": {
+  "license": "MIT",
+  "version": null
+ },
+ "notify": {
+  "license": "CC0-1.0",
+  "version": null
+ },
+ "portable-pty": {
+  "license": "MIT",
+  "version": null
+ },
+ "alacritty_terminal": {
+  "license": "Apache-2.0",
+  "version": null
+ },
+ "pulldown-cmark": {
+  "license": "MIT",
+  "version": null
+ },
+ "unicode-segmentation": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "unicode-width": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "fontdb": {
+  "license": "MIT",
+  "version": null
+ },
+ "ttf-parser": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "reqwest": {
+  "license": "MIT OR Apache-2.0",
+  "version": null
+ },
+ "ignore": {
+  "license": "Unlicense OR MIT",
+  "version": null
+ },
+ "fff-search": {
+  "license": "MIT",
+  "version": null
+ }
+}
