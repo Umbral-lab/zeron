@@ -171,8 +171,9 @@ PASS (this run):
   opened in this checkout (grep plus targeted reads) on commit 9f1c6979.
 - cargo fetch completed exit 0 with the shared CARGO_TARGET_DIR, confirming
   the whole lockfile still resolves on this host.
-- cargo test --locked -p zeron-update: result recorded in the PR packet
-  (see the PR's evidence note for the exact counts from this run).
+- cargo test --locked -p zeron-update: 18 passed, 0 failed, 0 ignored
+  (log zeron-target/logs/base003-update-tests.log; behavior evidence for the
+  auto-polling constants in section A3).
 NOT RUN (reason, not pass):
 - Transitive license audit of all 1155 lockfile packages (tooling decision
   pending, charter dependency rules).
