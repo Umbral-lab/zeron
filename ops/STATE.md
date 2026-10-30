@@ -55,86 +55,71 @@ No nightly run, product build, independent review or runtime enforcement has bee
 verified. Unattended inference is BLOCKED. A resumes canonical state ownership
 after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
-## Current-state overlay (worker A, 2026-10-30, appended; imported prefix bytes preserved)
+## Current position (worker A; supersedes the earlier 2026-10-30 overlays; imported prefix bytes preserved)
 
-- Milestone M0 in progress. BASE-001 is ready_for_review on branch
-  task/base-001-fork-baseline (commit
-  5502aae07d7360f404c0aaedb7d591054e09bb65, base 60e87c51843f903484510652d975985f2ad3d448):
-  docs/BASELINE.md, ops/tasks/BASE-001.md and A's review at
-  ops/mailboxes/worker-a/reviews/REVIEW-SETUP-001.md. Push to origin was blocked
-  by a container-wide DNS outage for github.com and api.github.com starting about
-  08:46 UTC after successful reads at 08:40 UTC; no remote mutation occurred.
-  Work is preserved in worktree /opt/data/home/zeron-wt/base-001.
-- A's independent review of B's SETUP-001 artifacts: APPROVE scoped at head
-  60e87c51. Open items: the paused job 31ab9d0c0fe6 on B's host cannot be
-  verified from A's host; the AGENTS.md commit-identity wording conflicts with
-  the owner-configured worker A identity — A commits as david-noether[bot] per
-  the loaded charter and flags AGENTS.md for owner clarification.
-- Worker A runtime resolved: provider custom, base_url
-  http://192.168.10.244:8080/v1, model qwen3.8-flash-next-iq3_xxs (self-hosted
-  llama.cpp; unmetered, so quota readings on this route are UNKNOWN by nature).
-  ops/policy.json is import-locked (fully hashed in the manifest), so its
-  worker_a_runtime_identifier field stays null and this line is the record.
-  Terra/Sol live availability: NOT VERIFIED from A's host (B-host concern).
-- Toolchain blocker: host e0f0e41ca9d6 (2 cores, headless, user hermes, no
-  sudo) has no cargo, rustc or rustup. Linux builds need the GPUI apt package
-  list from CONTRIBUTORS.md, an operator root action. BASE-002 (visual and
-  workflow baseline) is blocked behind that decision; pre-existing Rust test
-  failure state is UNKNOWN.
-- Run 2026-10-30 (first on A's host): Hermes cron job 4103065fd3d6 was created
-  08:22 UTC and fired 08:37 UTC, outside the nominal 01:00 Europe/Madrid
-  window, with no launcher run receipt or policy snapshot; only bounded R0 work
-  was performed. The job has no per-job model or timezone pin (schedule
-  0 0 * * *, host clock UTC). No schedule, policy or permission change was made.
-- Queue: BASE-001 ready_for_review. OPS-001 blocked (missing owner prompts
-  docs/agent-prompts/02_GPT_WORKER.md and 03_SOL_AUDIT.md; no enforcement
-  snapshot). BASE-002 blocked on the toolchain decision. Next unblocked primary:
-  BASE-003 outbound-connection and license-provenance map (R0, no toolchain).
-- Credential handling: GitHub App helper verified for Umbral-lab/zeron; remote
-  URL clean; repo-local git identity david-noether[bot]. All pushes tonight use
-  an explicit bot credential helper with the credential store reset for
-  github.com, because a global credential.helper store still exists; removing
-  or reordering it is an operator hardening item.
-- Next action: once network recovers, fetch-verify origin/main still equals
-  60e87c51, then push task/base-001-fork-baseline and this state commit
-  (bot helper). B reviews BASE-001. Owner decisions needed: toolchain
-  provisioning (root apt plus rustup on this host, or a designated build host),
-  AGENTS.md identity wording, and the two missing prompt files.
-
-## Owner decision 2026-10-30 (toolchain)
-- Decision 1 resolved: compile locally on this host (A's host). The owner runs
-  the CONTRIBUTORS.md GPUI apt package line as root; rustup installs as the
-  hermes user (agent-controlled, no root). The pinned stable channel from
-  rust-toolchain.toml is respected automatically. BASE-002 remains blocked
-  until the apt line has been executed; verify with apt list before compiling.
-- Build cache policy: all builds and worktrees share CARGO_TARGET_DIR
-  /opt/data/home/zeron-target so only the first compilation pays the cold
-  full-build cost on 2 cores; later runs are incremental. Expect a multi-hour
-  first full build (cargo build -p zeron); nightlies should prefer targeted
-  crates and test subsets.
-- Remaining owner decisions: AGENTS.md identity wording; the two missing
-  agent-prompt files for OPS-001.
-- Status 2026-10-30 later: owner executed the GPUI apt line; all 14 packages
-  verified installed (dpkg check). rustup 1.29.2 installed for hermes; pinned
-  stable 1.99.1 resolves in this checkout; crate sources pre-fetched. First
-  cold full build of -p zeron started in background with shared
-  CARGO_TARGET_DIR; result recorded in build1.log next to the target dir.
-  Toolchain blocker for BASE-002 lifted once that build lands.
-- Result 2026-10-30 17:35 UTC: cold full build of -p zeron SUCCEEDED (exit 0,
-  ~2h05m wall on 2 cores; one extra root package needed beyond CONTRIBUTORS.md:
-  libssl-dev, since openssl-sys build script requires it; log
-  zeron-target/build2.log). Debug binary zeron-target/debug/zeron (2.3G),
-  target dir 17G, disk headroom 31G. Incremental no-op rebuild measured 0.9s.
-  BASE-002 unblocked: nightlies may run targeted cargo tests/builds.
-  Note: cargo flags one future-incompat dependency (proc-macro-error2).
-- Integration 2026-10-30 18:02 UTC: PR #2 (owner-supplied worker prompts)
-  reviewed and merged by A — approval review posted by david-noether[bot],
-  head b7705159, merge commit 660343fe on main. Four prompts verified
-  byte-identical on main (blobs a206369b, afad61ee, 15f52b63, 272179e5).
-  Identity decision landed via b7705159: AGENTS.md now assigns per-worker
-  commit identities (A=david-noether[bot], B=Umbral Agent /
-  umbral-labs-dev[bot], separate computers, own local auth, no
-  cross-imposition). Owner decisions 1-3 all resolved; the missing-prompts
-  blocker is removed from ops/bootstrap/SETUP.md (PR content) and issue #3.
-  A's nightly launcher follows docs/agent-prompts/01_BUILDER.md from the
-  2026-10-31 00:00 UTC run; bootstrap is closed and must not re-run.
+- Runs 2026-10-30: three A activities on this date — morning bootstrap-baseline
+  run (job 4103065fd3d6, 08:37 UTC, bounded R0), owner-directed integration of
+  PR #2 (18:02 UTC, merge 660343fe, prompts byte-verified, AGENTS.md identity
+  split b7705159 resolved the identity wording decision), and an owner-fired
+  daytime test of the nightly-builder configuration (~19:06 UTC start,
+  supervised, outside the 01:00 Europe/Madrid product window by owner
+  instruction; not an unattended nightly; no schedule created or enabled).
+- Bootstrap closed (BASE-001 verified facts below); the nightly run starting
+  2026-10-31 00:00 UTC follows docs/agent-prompts/01_BUILDER.md.
+- Toolchain live on A's host (owner decision 1 executed): GPUI apt packages
+  installed by the owner plus libssl-dev (the CONTRIBUTORS.md gap); rustup
+  pinned stable 1.99.1; cold full build of -p zeron succeeded 17:35 UTC
+  (log zeron-target/build2.log, 0.9s incremental no-op; cargo flags one
+  future-incompat dependency, proc-macro-error2 — retained notice). Shared
+  CARGO_TARGET_DIR /opt/data/home/zeron-target for all worktrees.
+- Queue (single-integrator mode; A owns this file):
+  - BASE-001 ready_for_review: branch task/base-001-fork-baseline head
+    5502aae0, now published as PR #6 (the morning push lacked the PR; fixed
+    2026-10-30 evening). Awaiting B's independent review at that head.
+  - BASE-003 ready_for_review: docs/CONNECTIONS_AND_LICENSES.md,
+    ops/tasks/BASE-003.md and live license evidence; branch
+    task/base-003-connection-license-map head a0ef50a2, PR #7. Awaiting B's
+    review. Key findings: automatic vendor-edge update polling and harness
+    compatibility fetches are mapped with file evidence; git pins
+    zeronsh/zui and zeronsh/gpui-component report license NOASSERTION —
+    release-blocking UNVERIFIED gap for M4; transitive audit of the 1155
+    lockfile entries NOT RUN pending an owner/reviewed tooling decision.
+  - B-SETUP (B's local nightly wake-up): PR #5 reviewed by A (nine tests
+    re-run on A's host at head 61b12b45, 9/9; record at
+    ops/mailboxes/worker-a/reviews/REVIEW-PR5.md) and integrated as merge
+    7ca3a99d; merged files verified byte-identical and 9/9 re-run on the
+    merged tree. B's owner-authorized local systemd timer is active on B's
+    host; first scheduled unattended wake 2026-10-31 01:00 Europe/Madrid.
+    Single-dispatcher rule: A will not dispatch B while that timer exists.
+  - BASE-002 unblocked (toolchain + binary exist); still NOT STARTED: real
+    UI evidence needs a display path — remains NOT RUN on headless host.
+  - OPS-001 open (issue #3): declarative policy only; no launcher receipt or
+    immutable snapshot on A's host; dry-run items 1-9 largely NOT VERIFIED;
+    carried findings from REVIEW-PR5 (per-night quota baseline, launcher
+    coupling, guard egress breadth, B-host facts NOT VERIFIED). Next A step:
+    a minimal A-side run receipt plus policy mapping as a separate reviewed
+    task before any unattended claim.
+- Worker A runtime (unchanged): provider custom, base_url
+  http://192.168.10.244:8080/v1, model qwen3.8-flash-next-iq3_xxs
+  (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
+  as unlimited). ops/policy.json import-locked; this line is the record.
+  Terra/Sol: NOT VERIFIED from A's host (B-host concern).
+- Credential handling (unchanged notices): GitHub App helper verified; repo
+  identity david-noether[bot]; every remote write this run used the explicit
+  bot credential helper; a global credential.helper store still exists and
+  remains an operator hardening item.
+- Checks verified 2026-10-30 evening: DNS recovered; origin/main fetch
+  read-back; App whoami; 9/9 B tests (twice, incl. merged tree); cargo fetch
+  exit 0; cargo test --locked -p zeron-update 18/18; live crates.io (69 direct
+  deps) and GitHub license lookups; git ls-remote pins exist. NOT RUN:
+  broader cargo suites, UI evidence (headless), transitive license audit.
+- Last run usage: Qwen self-hosted route only (counted approximately via
+  session dispatches; provider does not report totals); no Terra/Sol use.
+- Next action (next scheduled run): consume B reviews of PR #6 and PR #7;
+  read B's first nightly receipt/result after the 01:00 wake as OPS-001
+  evidence; then the smallest remaining M0 slice (BASE-002 partial:
+  headless-visible evidence such as CLI/log surfaces, or LOCAL-001 design
+  prep strictly after BASE-003 review).
+- Owner decisions open: transitive license-audit tooling (cargo-about or
+  cargo-deny) approval or deferral; display path for UI evidence, or
+  acceptance that BASE-002 visual acceptance stays NOT RUN on this host.
