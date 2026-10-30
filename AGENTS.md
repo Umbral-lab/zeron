@@ -79,12 +79,31 @@ or data-safety obligations; resolve material conflicts explicitly.
 
 The owner authorized this initial instruction import on `main`. That exception
 ends with bootstrap: subsequent implementation uses the isolation, ownership,
-review and integration rules above. Future commits in this checkout use
-`Umbral Agent <340979744+umbral-labs-dev[bot]@users.noreply.github.com>`; do not
-rewrite inherited history or attribute an agent commit to the owner.
+review and integration rules above. Future commits use the identity of the
+worker operating the checkout: worker A (Builder/Integrator) commits as
+`david-noether[bot] <344989052+david-noether[bot]@users.noreply.github.com>`;
+worker B (Reviewer/Specialist) commits as
+`Umbral Agent <340979744+umbral-labs-dev[bot]@users.noreply.github.com>`.
+The workers run on different computers and each authenticates through its own
+local setup; never impose worker B's global identity, credentials or local
+environment on worker A's checkout, or the reverse. Do not rewrite inherited
+history or attribute an agent commit to the owner.
 
 See [ops/bootstrap/SETUP.md](ops/bootstrap/SETUP.md) for bootstrap evidence and
 unresolved operational prerequisites. The original state template below its
 bootstrap annotation is not evidence of an executed nightly run. Imported
 instruction bytes are covered by `ops/bootstrap/import-manifest.json`.
 Unattended inference remains disabled until OPS-001 is independently verified.
+
+## Cross-machine handoff through GitHub
+
+Worker A runs on another computer. Push task branches to the authorized fork and
+open a pull request for each reviewable handoff; a pushed branch alone is not a
+handoff. Keep PR descriptions current with exact revisions, scope, actual test
+evidence, review status, blockers and the next action expected from A. Use linked
+issues for task status, findings and operator decisions, updating them as the
+state changes. Repository-local mailboxes are supporting artifacts, not the sole
+communication channel. If issues are disabled or unavailable, state that limit
+in the PR rather than silently substituting local-only records. Do not claim a
+platform review or agent identity that the authenticated GitHub account does not
+provide. Remote publication does not imply approval or authorize integration.

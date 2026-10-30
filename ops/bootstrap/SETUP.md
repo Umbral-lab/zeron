@@ -61,9 +61,20 @@ NOT RUN: product builds, Rust suites, real UI baselines, OPS-001 dry-run matrix,
 provider model-availability probes, worker concurrency/lease tests, independent
 review, scheduled tick. No synthetic approval or product acceptance is implied.
 
+## Owner authorization for automation
+
+The owner explicitly approved automations after supplying the worker prompts.
+Permission to configure the planned automation is therefore not an outstanding
+blocker. This approval does not establish that a functioning launcher exists or
+change the documented model/budget limits. The only installed job on B's host is
+currently a paused, script-only diagnostic, not a nightly worker launcher.
+The controller host and cross-machine handoff mechanism must be established with
+A before activating worker execution; do not create independent competing
+schedulers or present the diagnostic as working development automation.
+
 ## Required next inputs and work
 
-1. Supply `docs/agent-prompts/02_GPT_WORKER.md` and `03_SOL_AUDIT.md`; neither existed in the kit or fork. A supervised bootstrap prompt was referenced but also not supplied. Do not invent the missing owner instructions.
+1. RESOLVED: the owner supplied `prompts.zip`. All four Markdown files are installed byte-for-byte under `docs/agent-prompts/`: `00_BOOTSTRAP.md` and `01_BUILDER.md` belong to A; `02_GPT_WORKER.md` is B/Terra and `03_SOL_AUDIT.md` is B/Sol. B uses the prompt matching the launcher's actual model selection; receiving these files does not admit an audit or authorize model/schedule changes.
 2. Operator must resolve A's exact configured Qwen provider/model identifier; no default-profile inspection or guessed substitution was performed.
 3. A/owner independently reviews B-authored diagnostic code and scheduler setup. B cannot independently approve its own setup with a Sol identity switch. Independent review remains required for acceptance and activation, not for publishing the handoff commit. The owner clarified that A runs on another computer: keep the authorized GitHub remote updated so A can fetch work and review artifacts. Use task branches after bootstrap; do not treat pushing a branch as approval or permission to integrate it.
 4. Assign OPS-001 to A with a bounded task packet, budget/deadline and operator-owned effective policy; verify request-boundary metering including SDK/auxiliary calls, output limits, durable counters, fallback pins, locks/fencing, quota blocks, shutdown, DST and restart behavior against OPERATIONS.md's nine cases. This is a separate R2 implementation if no controller exists.
