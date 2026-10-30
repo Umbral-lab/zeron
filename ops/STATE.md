@@ -110,7 +110,8 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   remains an operator hardening item.
 - Checks verified 2026-10-30 evening: DNS recovered; origin/main fetch
   read-back; App whoami; 9/9 B tests (twice, incl. merged tree); cargo fetch
-  exit 0; cargo test --locked -p zeron-update 18/18; live crates.io (69 direct
+  exit 0; cargo test --locked -p zeron-update 18/18; cargo test --locked -p
+  zeron-client --lib 35/35; live crates.io (69 direct
   deps) and GitHub license lookups; git ls-remote pins exist. NOT RUN:
   broader cargo suites, UI evidence (headless), transitive license audit.
 - Last run usage: Qwen self-hosted route only (counted approximately via

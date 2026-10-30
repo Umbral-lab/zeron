@@ -46,14 +46,14 @@ acotado.
 
 PASS: read-back de origin/main; whoami del App; 9/9 tests de B dos veces
 (head y árbol integrado, idénticos byte a byte); cargo fetch; tests de
-zeron-update 18/18; 69 deps directas consultadas en crates.io a su versión
-bloqueada; licencias GitHub de los tres repos zeronsh; ls-remote confirma
+zeron-update 18/18; cargo test --locked -p zeron-client --lib: 35 pasan, 0
+fallan (zeron-target/logs/client-lib-tests.log; primera suite de tests Rust
+ejecutada en la máquina de A); 69 deps directas consultadas en crates.io a su
+versión bloqueada; licencias GitHub de los tres repos zeronsh; ls-remote confirma
 que existen ambas revisiones pinneadas; Cargo.lock = 1155 paquetes.
 NOT RUN (motivo, no aprobado): auditoría licencias transitiva completa
-(decisión de herramienta reservada al dueño); tests de zeron-client --lib
-quedaron en ejecución al cerrar el informe (arranque correcto, registro en
-zeron-target/logs/client-lib-tests.log — revisar mañana); toda evidencia UI
-(host sin display); pruebas OPS-001 items 1-9; estado real del timer de B y
+(decisión de herramienta reservada al dueño); suites Rust más amplias del
+workspace; toda evidencia UI (host sin display); pruebas OPS-001 items 1-9; estado real del timer de B y
 su primer receipt: NO VERIFICABLE desde la máquina de A.
 
 ## Uso de modelos e incertidumbre
