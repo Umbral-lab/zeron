@@ -1,0 +1,17 @@
+[Unit]
+Description=Zeron worker B bounded local nightly wake-up
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=/home/jetson/Dev/zeron
+Environment=HERMES_HOME=/home/jetson/.hermes/profiles/zeron
+Environment=TZ=Europe/Madrid
+Environment=PATH=/home/jetson/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /home/jetson/.hermes/profiles/zeron/scripts/zeron-nightly.py
+RuntimeMaxSec=600
+TimeoutStopSec=1
+KillMode=control-group
+SendSIGKILL=yes
+Restart=no
+UMask=0077
