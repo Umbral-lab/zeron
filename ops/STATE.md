@@ -114,3 +114,9 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   crates and test subsets.
 - Remaining owner decisions: AGENTS.md identity wording; the two missing
   agent-prompt files for OPS-001.
+- Status 2026-10-30 later: owner executed the GPUI apt line; all 14 packages
+  verified installed (dpkg check). rustup 1.29.2 installed for hermes; pinned
+  stable 1.99.1 resolves in this checkout; crate sources pre-fetched. First
+  cold full build of -p zeron started in background with shared
+  CARGO_TARGET_DIR; result recorded in build1.log next to the target dir.
+  Toolchain blocker for BASE-002 lifted once that build lands.
