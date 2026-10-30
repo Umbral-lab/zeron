@@ -120,3 +120,10 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   cold full build of -p zeron started in background with shared
   CARGO_TARGET_DIR; result recorded in build1.log next to the target dir.
   Toolchain blocker for BASE-002 lifted once that build lands.
+- Result 2026-10-30 17:35 UTC: cold full build of -p zeron SUCCEEDED (exit 0,
+  ~2h05m wall on 2 cores; one extra root package needed beyond CONTRIBUTORS.md:
+  libssl-dev, since openssl-sys build script requires it; log
+  zeron-target/build2.log). Debug binary zeron-target/debug/zeron (2.3G),
+  target dir 17G, disk headroom 31G. Incremental no-op rebuild measured 0.9s.
+  BASE-002 unblocked: nightlies may run targeted cargo tests/builds.
+  Note: cargo flags one future-incompat dependency (proc-macro-error2).
