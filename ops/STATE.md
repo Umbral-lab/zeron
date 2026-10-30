@@ -127,3 +127,14 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   target dir 17G, disk headroom 31G. Incremental no-op rebuild measured 0.9s.
   BASE-002 unblocked: nightlies may run targeted cargo tests/builds.
   Note: cargo flags one future-incompat dependency (proc-macro-error2).
+- Integration 2026-10-30 18:02 UTC: PR #2 (owner-supplied worker prompts)
+  reviewed and merged by A — approval review posted by david-noether[bot],
+  head b7705159, merge commit 660343fe on main. Four prompts verified
+  byte-identical on main (blobs a206369b, afad61ee, 15f52b63, 272179e5).
+  Identity decision landed via b7705159: AGENTS.md now assigns per-worker
+  commit identities (A=david-noether[bot], B=Umbral Agent /
+  umbral-labs-dev[bot], separate computers, own local auth, no
+  cross-imposition). Owner decisions 1-3 all resolved; the missing-prompts
+  blocker is removed from ops/bootstrap/SETUP.md (PR content) and issue #3.
+  A's nightly launcher follows docs/agent-prompts/01_BUILDER.md from the
+  2026-10-31 00:00 UTC run; bootstrap is closed and must not re-run.
