@@ -100,3 +100,17 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   (bot helper). B reviews BASE-001. Owner decisions needed: toolchain
   provisioning (root apt plus rustup on this host, or a designated build host),
   AGENTS.md identity wording, and the two missing prompt files.
+
+## Owner decision 2026-10-30 (toolchain)
+- Decision 1 resolved: compile locally on this host (A's host). The owner runs
+  the CONTRIBUTORS.md GPUI apt package line as root; rustup installs as the
+  hermes user (agent-controlled, no root). The pinned stable channel from
+  rust-toolchain.toml is respected automatically. BASE-002 remains blocked
+  until the apt line has been executed; verify with apt list before compiling.
+- Build cache policy: all builds and worktrees share CARGO_TARGET_DIR
+  /opt/data/home/zeron-target so only the first compilation pays the cold
+  full-build cost on 2 cores; later runs are incremental. Expect a multi-hour
+  first full build (cargo build -p zeron); nightlies should prefer targeted
+  crates and test subsets.
+- Remaining owner decisions: AGENTS.md identity wording; the two missing
+  agent-prompt files for OPS-001.
