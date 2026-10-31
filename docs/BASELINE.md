@@ -135,6 +135,14 @@ data; no login performed; local-only mode):
 - cargo test --locked -p zeron-sync --features mock-server: 83 passed,
   2 ignored, 0 failed (plain -p zeron-sync fails to compile the inherited
   registry_client integration test; command nuance recorded above).
+- cargo test --locked -p zeron-harness: 482 + 87 + 10 passed across harness
+  targets, but the muse integration target showed one FLAKY failure on the
+  2-core host (a_crash_mid_turn_reports_muses_last_words, "Muse stdout
+  closed"): a single-target re-run passed 16/16. Recorded as a host-speed
+  timing flake candidate, not a confirmed fork regression; re-check in CI.
+- cargo test --locked -p zeron-notify: 3 passed, 0 failed.
+- No zeron-agent-control or zeron-i18n packages exist in this workspace
+  (crate list verified: audio … zatex).
 - zeron -V: 0.2.130 (debug build of main e3f01754).
 - zeron --help: real headless CLI surface exists — headless, login, logout,
   status, sync, appshot, mcp, daemon, update subcommands.
