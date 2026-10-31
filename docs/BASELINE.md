@@ -58,6 +58,12 @@ command or file read in this checkout; anything not executed is labelled NOT RUN
 - cargo test --locked -p zeron-engine --lib
 - cargo test --locked -p zeron-harness (includes tests/ fixtures)
 - cargo test --locked -p zeron-sync --lib
+- cargo test --locked -p zeron-sync --features mock-server
+  (verified 2026-10-31: plain -p zeron-sync without the feature fails to
+  compile the integration test registry_client.rs because it imports the
+  cfg-gated registry::mock_server module; this is inherited behavior, not a
+  fork regression. With the feature: 83 passed, 2 ignored, 0 failed.)
+- cargo test --locked -p zeron-proto (verified 2026-10-31: 98 passed, 0 failed)
 - cargo test --locked -p zeron-preview
 - cargo clippy --all-targets; format only changed code, no whole-file reformat.
 - Account-free UI exercising: ZERON_HARNESS=mock with ZERON_MOCK_SUBAGENT,
