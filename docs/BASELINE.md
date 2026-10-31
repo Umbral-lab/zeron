@@ -123,3 +123,34 @@ NOT RUN (reason, not pass):
   run had available; 2-core CPU.
 - Real UI and visual baseline (BASE-002 input): headless host, app not buildable.
 - Pre-existing test failure state: UNKNOWN until a toolchain exists.
+
+## Headless core evidence added 2026-10-31 (toolchain live)
+
+PASS (isolated disposable data dir under the agent scratch area; no real user
+data; no login performed; local-only mode):
+
+- cargo test --locked -p zeron-proto: 98 passed, 0 failed.
+- cargo test --locked -p zeron-sync --features mock-server: 83 passed,
+  2 ignored, 0 failed (plain -p zeron-sync fails to compile the inherited
+  registry_client integration test; command nuance recorded above).
+- zeron -V: 0.2.130 (debug build of main e3f01754).
+- zeron --help: real headless CLI surface exists — headless, login, logout,
+  status, sync, appshot, mcp, daemon, update subcommands.
+- zeron status with an isolated ZERON_DATA_DIR: reports the vendor edge
+  default https://edge.zeron.sh, Mode local only, Auth signed out, engine
+  state, and loopback-only IPC binding (127.0.0.1, port via ZERON_IPC_PORT).
+- zeron headless (30 s, then 25 s run): engine starts, assembles a per-data-dir
+  device id, checkpoints the sync WAL, listens IPC on loopback only; SIGTERM
+  produced a clean shutdown line. While running, zeron status reported
+  running with the IPC port listening; zeron sync reported the device id with
+  Workspace "no room (dialing or edge-less)" and no open chats.
+- Data-dir contents after the runs: device-id, locks, ipc-token,
+  local-profile.json, logs/, profiles/ — durable local state, no credentials.
+- Startup logs of the two bounded headless runs showed no vendor update or
+  release-fetch errors; the only warnings were the CLI's own short websocket
+  probe disconnecting. The code-level auto-update poll mapped in BASE-003
+  remains the authority for default egress behavior; this was not a network
+  capture.
+
+NOT RUN: headed UI rendering (headless host). This section partially informs
+BASE-002 (CLI/log surfaces) but does not replace visual acceptance.
