@@ -136,10 +136,14 @@ data; no login performed; local-only mode):
   2 ignored, 0 failed (plain -p zeron-sync fails to compile the inherited
   registry_client integration test; command nuance recorded above).
 - cargo test --locked -p zeron-harness: 482 + 87 + 10 passed across harness
-  targets, but the muse integration target showed one FLAKY failure on the
-  2-core host (a_crash_mid_turn_reports_muses_last_words, "Muse stdout
-  closed"): a single-target re-run passed 16/16. Recorded as a host-speed
-  timing flake candidate, not a confirmed fork regression; re-check in CI.
+  targets, but the muse integration target is FLAKY on this host:
+  a_crash_mid_turn_reports_muses_last_words (crates/harness/tests/muse.rs:583,
+  "harness protocol error: Muse stdout closed") failed in 4 of 11 isolated
+  target-only runs (1 failure in the initial full-suite invocation, then 4
+  failures across a 10-run isolated repeat with 6 passes) — a repeat-rate
+  timing flake, not a one-off and not claimed as a fork regression; filed as
+  issue-tracked evidence for a later bounded fix task (likely a pipe-read race
+  in the test harness).
 - cargo test --locked -p zeron-notify: 3 passed, 0 failed.
 - No zeron-agent-control or zeron-i18n packages exist in this workspace
   (crate list verified: audio … zatex).
