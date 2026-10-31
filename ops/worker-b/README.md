@@ -9,16 +9,19 @@ NOT a prerequisite for this smaller local B job. This is one worker, not a third
 agent or competing shared controller. Disable this local timer before handing B
 admission to A's future controller; both must not dispatch B independently.
 
-Task B-AUDIT-001 is an R0 source-evidence report on inherited update/adapter
-startup behavior, not R2 implementation or independent approval of B's setup.
-See nightly-task.md. A still owns integration. No product behavior was changed
-as part of this setup.
+Task B-AUDIT-001 is now one R0 source-evidence report on the release-check consent
+boundary, not a broad updater/adapter inventory, R2 implementation or approval of
+B's setup. The model only inspects and returns evidence; deterministic controller
+code owns checkpointing, Markdown, commit, bot issue/PR and remote verification.
+See nightly-task.md. A still owns integration. No product behavior is changed.
 
 ## Installed configuration
 
 The reviewed source copies here correspond to:
 
 - `~/.hermes/profiles/zeron/scripts/zeron-nightly.py`
+- `~/.hermes/profiles/zeron/scripts/zeron_nightly_publish.py`
+- `~/.hermes/profiles/zeron/scripts/test_handoff.py`
 - `~/.hermes/profiles/zeron/scripts/test_zeron_nightly.py`
 - `~/.hermes/profiles/zeron/nightly-task.md`
 - `~/.config/systemd/user/zeron-worker-b-nightly.service`
@@ -66,8 +69,9 @@ Fresh supported account usage is checked before admission and each intercepted
 attempt, with the specified reserve and same-window consumption checks. These
 readings are account-wide, not attributed solely to Zeron. This is a trusted-worker
 process guard and task scope, not an adversarial OS sandbox or the complete
-cross-machine OPS-001 solution. Independent review is pending; do not claim full
-OPS-001 acceptance or approval of B-authored runtime code.
+cross-machine OPS-001 solution. A reviewed the original setup in PR #5; this
+handoff correction needs a fresh independent review. Do not claim full OPS-001
+acceptance or approval of B-authored runtime code.
 
 ## Actual verification during setup
 
@@ -91,6 +95,42 @@ Re-run tests with the installed Hermes bootstrapped interpreter, as used during
 setup, or equivalent dependencies. Use `zeron-nightly.py --plan` to inspect
 current admission without dispatching inference. Do not run a live task as a test
 outside the permitted window.
+
+## First-night failure and publication correction
+
+The 2026-10-31 timer fired at 01:00 CET and exited 01:01:32. Four attempts were
+reserved; the three tool rounds ended in a partial summary without a file or
+GitHub handoff. The old `finished` receipt incorrectly described process exit
+as sufficient completion. The original receipt/log are retained unchanged.
+
+The correction keeps the same 4-request / 4,000-reserved-output / 600-second caps:
+
+- Save an initial partial checkpoint before inference and preserve the final
+  structured response outside the model's tool budget.
+- Limit model execution to six minutes, stop the owned process by the seven-minute
+  boundary, and reserve the final three minutes INSIDE the existing ten-minute
+  service cap for deterministic checkpoint and publication.
+- Fetch and pin actual remote main. The model reads `git show SHA:path`, not a
+  stale branch. Its task is now only the release-check consent boundary.
+- Create the Markdown report locally with mode 0600 before network publication.
+  Use the existing scoped bot helper to create the report commit, fixed dated
+  branch, tracking issue and PR; do not change the interactive checkout or main.
+- Read back exact issue/PR authors and bodies, branch SHA and report content.
+  Partial reports get DRAFT PRs; they are published evidence, not accepted tasks.
+- A zero-exit worker without explicit task completion AND a verified issue/PR
+  returns nonzero task status. Network failures keep the checkpoint and partial
+  handles. Do not retry or reset counters automatically; ref collisions fail
+  closed rather than force-updating unreviewed work.
+- Only verified complete reports populate the unchanged-source skip cache.
+  Historical attempt counts are never reset for publication recovery.
+
+Nineteen tests PASS: the original nine plus ten handoff regressions. The new
+regressions reproduce budget-exhausted partial output, process exit zero with
+missing checkpoint, publication failure, wrong actor, timeout interruption,
+explicit completion, private permissions and expired publication deadline.
+Remote fixtures in unit tests are explicitly mocked; actual remote verification
+is required for the fix PR and any recovery report. No additional model call is
+needed to preserve or publish already-produced nighttime evidence.
 
 ## First-run inspection / rollback
 
