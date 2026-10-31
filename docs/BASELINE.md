@@ -130,6 +130,8 @@ PASS (isolated disposable data dir under the agent scratch area; no real user
 data; no login performed; local-only mode):
 
 - cargo test --locked -p zeron-proto: 98 passed, 0 failed.
+- cargo test --locked -p zeron-veil --lib: 16 passed, 0 failed (E2EE crate green).
+- cargo test --locked -p zeron-rpc --lib: 25 passed, 0 failed.
 - cargo test --locked -p zeron-sync --features mock-server: 83 passed,
   2 ignored, 0 failed (plain -p zeron-sync fails to compile the inherited
   registry_client integration test; command nuance recorded above).
