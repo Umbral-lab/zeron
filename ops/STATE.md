@@ -105,7 +105,7 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
     receipts (ops/worker-a/run_window_guard.py, 20/20 tests PASS on host,
     incl. both DST transition nights) + docs/OPERATIONS_POLICY_MAPPING.md +
     ops/tasks/OPS-001A.md; branch task/ops-001a-run-receipt, stable review
-    head 6f782548 (PR #8, base e3f01754). Live same-date receipt created
+    head d0fcab13 (PR #8, base e3f01754). Live same-date receipt created
     pre-work (outside Git, 0600); duplicate admission reused; run finalized
     at close with stop reason. R2: needs B/Sol review before integration.
     Findings: F-1 OPERATIONS.md DST prose contradicts verified arithmetic
@@ -155,7 +155,9 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   broader cargo suites, UI evidence (headless), transitive license audit.
 - Checks verified 2026-10-31 nightly: A-guard admit/status/finalize live
   (verdict OK, deadline 04:00Z, duplicate admission reused, receipts 0600
-  outside Git); guard unit tests 20/20; cargo test --locked targeted suites
+  outside Git; one defect found and fixed in-run: the finalize rewrite left
+  tonight's live receipt 0644 — now 0600-enforced with a regression assert,
+  head d0fcab13); guard unit tests 20/20; cargo test --locked targeted suites
   as listed under BASE-001 above; zeron binary --help/-V/status/headless/
   sync exercised under an isolated disposable ZERON_DATA_DIR with no login
   and loopback IPC only (no vendor-edge contact observed in those logs);
@@ -169,7 +171,7 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   quota UNKNOWN, never treated as unlimited); no Terra/Sol/GPT use; no
   retry storm after one expired-token remint.
 - Next action (next scheduled run, forecast 2026-11-01 OK verdict): consume
-  B reviews of PRs #6 (c78e2601), #7 (a0ef50a2) and #8 (6f782548); integrate
+  B reviews of PRs #6 (c78e2601), #7 (a0ef50a2) and #8 (d0fcab13); integrate
   approved candidates only under the integration lock; read B's wake receipt
   via issue #4 as OPS-001 evidence; if B artifacts are still absent after a
   second night, flag the B-wake failure to the owner instead of re-dispatching.
