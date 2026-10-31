@@ -15,7 +15,7 @@ worker B's machine (NOT VERIFIED from A).
 
 | Policy rule | Actual control on A's host | Status |
 |---|---|---|
-| One run per project local date, Europe/Madrid semantics | Hermes cron job 4103065fd3d6 "zeron-worker-a", schedule expression 0 0 * * * (UTC), enabled, workdir /opt/data/home/zeron. No timezone field is present in the stored job. In CET this equals the 01:00 local nominal start; in CEST it would fire at 02:00 local, i.e. beyond the 15-minute grace. | PARTIAL / ENFORCED-with-gap |
+| One run per project local date, Europe/Madrid semantics | Hermes cron job 4103065fd3d6 "zeron-worker-a", schedule expression 0 0 * * * (bare UTC; no timezone field in the stored job; verified from /opt/data/cron/jobs.json). Guard verdict probe run live 2026-10-31 against the committed guard: nominal 01:00 Europe/Madrid equals 00:00Z on CET nights (UTC+1) and 23:00Z of the previous day on CEST nights (UTC+2), so the UTC cron lands exactly at nominal on CET nights (verdict OK), 60 minutes late on CEST nights (verdict SKIP_LATE_START — the guard skips, per the no-catch-up rule), also SKIP_LATE_START on the autumn changeover day (e.g. 2026-10-25: cron 00:00Z is 1.0 h past that local date's nominal 23:00Z), and OK on the spring changeover night (2027-03-28: cron 00:00Z equals nominal exactly, deadline 03:00Z). Net effect under the current bare-UTC job: every CEST-period and autumn-changeover night is skipped until the schedule timezone is fixed — a structural gap, not a guard defect. | PARTIAL / ENFORCED-with-gap |
 | Duplicate wake events create one run | Hermes cron wrote one admission file with an admission_id and request_id before dispatch (verified live 2026-10-31 00:00:50Z); the A-side guard additionally refuses a second same-date admission via exclusive-create receipt (test-verified 20/20). | ENFORCED (two layers) |
 | Deadline = earlier of local 05:00 and 4 elapsed hours, DST-aware | ops/worker-a/run_window_guard.py computes it timezone-aware; tonight's window: nominal 2026-10-31T00:00:00Z, deadline 2026-10-31T04:00:00Z. No external controller enforces it for A. | SELF-GUARDED |
 | 15-minute late-start grace, keep original deadline; later starts skip the night | Guard implements and test-covers it (boundary at exactly 15 minutes admitted; 16 minutes skipped). Not enforced externally. | SELF-GUARDED |
@@ -79,6 +79,11 @@ per skill noether-bot-identity. A global credential.helper store still exists
   actual_start 2026-10-31T00:01:00Z, verdict OK, deadline 2026-10-31T04:00:00Z,
   remaining at start 3.98 h; duplicate re-admission returned DUPLICATE and
   reused the original receipt (no re-dispatch).
+- Guard verdict probe over representative nights (committed guard, 2026-10-31):
+  2026-11-01 OK (elapsed 0.0 h); 2027-03-28 OK (0.0 h, deadline 03:00Z);
+  2026-10-24, 2026-10-25, 2027-04-01, 2027-06-15, 2027-10-24 all
+  SKIP_LATE_START (elapsed 1.0 h). This is the schedule-timezone gap of the
+  row above, measured against the code B is asked to review.
 - Guard unit tests: 20/20 PASS on python3 3.14.9 with system zoneinfo.
 - NOT RUN: dry-run items 3, 4, 7 partial only (see OPS-001A record); anything
   requiring B's host, quota readings or a display.
