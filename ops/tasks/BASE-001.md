@@ -36,10 +36,13 @@ ops/mailboxes/worker-a/reviews/REVIEW-SETUP-001.md.
 Actual checks (PASS / FAIL / NOT RUN + reason):
 - git fetch and identity probes: PASS (recorded in docs/BASELINE.md).
 - scripts/ops unittests (6) and preflight: PASS on this checkout.
-- cargo build/test/clippy: NOT RUN — no toolchain, no sudo for GPUI apt deps,
-  2-core headless host.
-- UI evidence: NOT RUN — headless host, app not buildable here.
-Remaining concerns / next step: toolchain provisioning decision belongs to the
-owner; BASE-002 stays blocked behind it. BASE-003 is the next toolchain-free
-research task. Worker B reviews this branch; verdict and any findings land in
-B's mailbox per docs/OPERATIONS.md.
+- cargo build/test/clippy: toolchain was later provisioned on A's host
+  (owner decision 2026-10-30). Targeted suites verified 2026-10-31 — see the
+  headless core evidence section of docs/BASELINE.md. Full-workspace test and
+  clippy runs: NOT RUN.
+- UI evidence: NOT RUN — headless host remains display-less; headless CLI and
+  engine evidence now recorded as partial input to BASE-002.
+Remaining concerns / next step: BASE-002 visual acceptance still needs an owner
+display path or an accepted NOT RUN stance; one flaky harness muse test on the
+2-core host should be re-checked in CI or on a faster machine. Worker B reviews
+this branch; verdict and any findings land in B's mailbox per docs/OPERATIONS.md.
