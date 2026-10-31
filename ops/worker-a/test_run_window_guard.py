@@ -167,6 +167,8 @@ class ReceiptTests(unittest.TestCase):
         r = json.loads(open(g.receipt_path(date(2026, 10, 31), self.dir), encoding="utf-8").read())
         self.assertEqual(r["final_state"], "FINALIZED")
         self.assertEqual(r["stop_reason"], "night complete")
+        mode = os.stat(g.receipt_path(date(2026, 10, 31), self.dir)).st_mode & 0o777
+        self.assertEqual(mode, 0o600)  # finalize rewrite must keep the receipt private
 
     def test_receipt_created_exclusively_and_private(self):
         g.admit_run(date(2026, 10, 31), self.start, dirpath=self.dir)

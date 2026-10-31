@@ -169,6 +169,7 @@ def admit_run(date_obj, actual_start_utc, dirpath=None, dry_run=False):
         os.write(fd, payload.encode("utf-8"))
     finally:
         os.close(fd)
+    os.chmod(path, 0o600)
     return {"status": "ADMITTED", "window": window, "start_admission": status, "receipt": receipt}
 
 
@@ -195,10 +196,12 @@ def finalize_run(date_obj, stop_reason, now_utc, dirpath=None):
     r["stop_reason"] = stop_reason
     r["finalized_utc"] = now_utc.astimezone(timezone.utc).isoformat()
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(json.dumps(r, indent=1) + "\n")
         f.flush()
         os.fsync(f.fileno())
+    os.chmod(tmp, 0o600)
     os.replace(tmp, path)
     return r
 
