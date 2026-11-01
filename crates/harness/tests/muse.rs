@@ -584,6 +584,77 @@ async fn a_crash_mid_turn_reports_muses_last_words() {
     assert!(error.contains("lost its session store"), "{error}");
 }
 
+fn stdout_closed_scenario(dir: &Path, exits: bool) -> PathBuf {
+    let original = std::fs::read_to_string(fixtures().join("crash.ndjson")).unwrap();
+    let mut steps: Vec<Value> = original
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let crash = steps
+        .iter()
+        .position(|step| step.get("stderr").is_some())
+        .unwrap();
+    let ending = steps.split_off(crash);
+    steps.push(serde_json::json!({"close_stdout": true}));
+    // Keep the exit status unavailable when the stdout EOF reaches the driver.
+    steps.push(serde_json::json!({"sleep": if exits { 100 } else { 30_000 }}));
+    if exits {
+        steps.extend(ending);
+    }
+    let path = dir.join("stdout-closed.ndjson");
+    let scenario = steps
+        .iter()
+        .map(Value::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&path, scenario).unwrap();
+    path
+}
+
+#[tokio::test]
+async fn a_crash_after_stdout_closes_still_reports_muses_last_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let harness = harness(dir.path());
+    let mut request = request(dir.path(), "crash", "go");
+    request.env.insert(
+        "MUSE_FAKE_SCENARIO".into(),
+        stdout_closed_scenario(dir.path(), true)
+            .display()
+            .to_string(),
+    );
+    let (run, _controls) = controls(vec![]);
+    let mut stream = harness.run(request, run).await.unwrap();
+    let events = turn(&mut stream).await;
+    let (status, error, _) = done(&events);
+    assert_eq!(status, DoneStatus::Errored);
+    let error = error.unwrap();
+    assert!(error.contains("Muse exited unexpectedly"), "{error}");
+    assert!(error.contains("lost its session store"), "{error}");
+}
+
+#[tokio::test]
+async fn a_closed_stdout_without_exit_is_a_bounded_protocol_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let harness = harness(dir.path());
+    let mut request = request(dir.path(), "crash", "go");
+    request.env.insert(
+        "MUSE_FAKE_SCENARIO".into(),
+        stdout_closed_scenario(dir.path(), false)
+            .display()
+            .to_string(),
+    );
+    let (run, _controls) = controls(vec![]);
+    let mut stream = harness.run(request, run).await.unwrap();
+    let events = tokio::time::timeout(Duration::from_secs(3), turn(&mut stream))
+        .await
+        .expect("a live process closing stdout must not hang crash reporting");
+    let (status, error, _) = done(&events);
+    assert_eq!(status, DoneStatus::Errored);
+    let error = error.unwrap();
+    assert!(error.contains("Muse stdout closed"), "{error}");
+    assert!(!error.contains("Muse exited unexpectedly"), "{error}");
+}
+
 #[tokio::test]
 async fn a_refused_prompt_ends_its_turn_with_the_reason() {
     let dir = tempfile::tempdir().unwrap();

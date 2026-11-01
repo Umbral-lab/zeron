@@ -172,7 +172,13 @@ impl MuseHarness {
                 _ = consumer.closed() => Ok(()),
             };
             if let Err(error) = result {
-                let status = runner.host.child.try_wait().ok().flatten();
+                // Stdout EOF can arrive before the exit status is observable.
+                // Match Pi's bounded wait so the actual crash and stderr survive.
+                let status =
+                    tokio::time::timeout(Duration::from_millis(250), runner.host.child.wait())
+                        .await
+                        .ok()
+                        .and_then(Result::ok);
                 runner.error = Some(if status.is_some() {
                     runner.host.tail.wait_closed().await;
                     crate::crash_message("Muse", status, &runner.host.tail)
