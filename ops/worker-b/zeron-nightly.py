@@ -12,6 +12,9 @@ import sys
 import time
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from zeron_nightly_publish import checkpoint, finalize, publish, render
+
 HOME = Path('/home/jetson/.hermes/profiles/zeron')
 ROOT = Path('/home/jetson/Dev/zeron')
 STATE = HOME / 'nightly'
@@ -20,6 +23,7 @@ MODEL = 'gpt-6.1-sol'
 MAX_REQUESTS = 4
 MAX_SECONDS = 600
 MAX_OUTPUT = 1000  # Reserve fully before dispatch; aggregate <=4,000.
+PUBLICATION_SECONDS = 180  # Included in, not added to, the existing ten-minute cap.
 
 
 def window(now):
@@ -34,7 +38,10 @@ def window(now):
 
 def save(path, value):
     temp = path.with_name(path.name + '.' + str(os.getpid()) + '.new')
-    with temp.open('w') as stream:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0)
+    fd = os.open(temp, flags, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, 'w') as stream:
         json.dump(value, stream, indent=2)
         stream.flush()
         os.fsync(stream.fileno())
@@ -83,7 +90,8 @@ def reserve(path, model, requested_output, sample):
         fcntl.flock(lock, fcntl.LOCK_EX)
         ledger = json.loads(path.read_text())
         try:
-            if time.time() >= ledger['deadline'] or time.monotonic() >= ledger['monotonic_deadline']:
+            if (time.time() >= min(ledger['deadline'], ledger.get('inference_deadline', ledger['deadline']))
+                    or time.monotonic() >= ledger['monotonic_deadline']):
                 raise RuntimeError('Hard deadline reached')
             if model != MODEL:
                 raise RuntimeError('Unapproved inference route/model')
@@ -183,7 +191,7 @@ def install_guard():
         cfg['model'] = dict(cfg.get('model') or {}, default=MODEL, provider='openai-codex', max_tokens=MAX_OUTPUT)
         agent = cfg.setdefault('agent', {})
         agent.update(api_max_retries=0, auto_recovery_cycles=0, max_turns=3,
-                     run_budget_seconds=540, max_verify_nudges=0)
+                     run_budget_seconds=360, max_verify_nudges=0)
         cfg.setdefault('auxiliary', {}).setdefault('title_generation', {})['enabled'] = False
         cfg['auxiliary'].setdefault('background_review', {})['enabled'] = False
         cfg['mcp_servers'] = {}
@@ -210,11 +218,16 @@ def run_worker():
                     skip_context_files=smoke, skip_memory=True, skip_background_review=True,
                     quiet_mode=True, max_iterations=1 if smoke else 3, max_tokens=MAX_OUTPUT,
                     reasoning_config=parse_reasoning_effort('medium'),
-                    run_budget_seconds=45 if smoke else 540, platform='cron', cwd=str(ROOT))
+                    run_budget_seconds=45 if smoke else 360, platform='cron', cwd=str(ROOT))
     task = 'Setup connectivity test only: reply READY, do not call tools.' if smoke else (HOME / 'nightly-task.md').read_text()
+    if not smoke:
+        source = os.environ['ZERON_NIGHTLY_SOURCE']
+        task += '\nPINNED SOURCE: ' + source + '\nUse git show ' + source + ':<path>; the local checkout branch is not the reviewed source.\n'
     try:
         result = agent.run_conversation(task)
         print(result.get('final_response', ''))
+        if not smoke:
+            save(Path(os.environ['ZERON_NIGHTLY_RESULT']), checkpoint(result))
         if result.get('failed'):
             raise SystemExit('Nightly worker reported failure')
     finally:
@@ -237,7 +250,44 @@ def supervise(command, cutoff, log):
                 return 124
 
 
+def finish_run(receipt, result_path, result, cutoff):
+    """Always checkpoint and attempt handoff, even after budget exhaustion."""
+    record = json.loads(receipt.read_text())
+    record.update(returncode=result, finished_at=datetime.now(timezone.utc).isoformat())
+    packet = json.loads(result_path.read_text()) if result_path.exists() else {
+        'status': 'partial', 'handoff_status': 'pending',
+        'reason': 'Worker exited without a result checkpoint', 'report': ''}
+    if result != 0:
+        packet['status'] = 'partial'
+        packet['reason'] = 'Worker interrupted or failed; preserving available checkpoint'
+    report_path = STATE / (record['date'] + '-report.md')
+    with report_path.open('w') as stream:
+        os.fchmod(stream.fileno(), 0o600)
+        stream.write(render(record, packet))
+        stream.flush()
+        os.fsync(stream.fileno())
+    packet['local_report'] = str(report_path)
+    save(result_path, packet)  # Publication failure cannot erase the local report.
+    try:
+        publish(record, packet, cutoff)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        packet['handoff_status'] = 'failed'
+        packet['publication_error'] = type(exc).__name__ + ': ' + str(exc)
+    code = finalize(record, packet)
+    save(result_path, packet)
+    save(receipt, record)
+    if code == 0:
+        save(STATE / 'last-completed-source.json',
+             {'source': record['source'], 'result_packet': str(result_path)})
+    print(json.dumps({'run_id': record['run_id'], 'state': record['state'],
+                      'requests': record['requests'], 'handoff_status': record['handoff_status'],
+                      'issue_url': packet.get('issue_url'), 'pr_url': packet.get('pr_url'),
+                      'local_report': str(report_path)}))
+    return code
+
+
 def launch():
+    started = time.monotonic()
     now = datetime.now(timezone.utc)
     date, admitted, end = window(now)
     if not admitted:
@@ -257,16 +307,20 @@ def launch():
         if (STATE / 'route-block.json').exists():
             print('BLOCKED: route parked pending operator reconciliation')
             return 1
-        source = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/main'],
-                                         cwd=ROOT, text=True, timeout=30).split()[0]
+        subprocess.run(['git', 'fetch', 'origin', 'main'], cwd=ROOT, check=True, timeout=30,
+                       stdout=subprocess.DEVNULL)
+        source = subprocess.check_output(['git', 'rev-parse', 'origin/main'],
+                                         cwd=ROOT, text=True, timeout=10).strip()
         completed = STATE / 'last-completed-source.json'
         if completed.exists() and json.loads(completed.read_text()).get('source') == source:
             print('SKIP: assigned source-audit task already completed for unchanged main')
             return 0
-        deadline = min(end.timestamp(), time.time() + MAX_SECONDS)
-        cutoff = time.monotonic() + max(0, deadline - time.time())
-        record = {'run_id': 'zeron:B:' + date, 'requests': 0, 'reserved_generated': 0,
-                  'deadline': deadline, 'monotonic_deadline': cutoff, 'state': 'admitted',
+        cutoff = min(time.monotonic() + max(0, end.timestamp() - time.time()), started + MAX_SECONDS)
+        deadline = time.time() + max(0, cutoff - time.monotonic())
+        record = {'run_id': 'zeron:B:' + date, 'date': date, 'source': source,
+                  'requests': 0, 'reserved_generated': 0,
+                  'deadline': deadline, 'inference_deadline': deadline - PUBLICATION_SECONDS,
+                  'monotonic_deadline': cutoff, 'state': 'admitted',
                   'model': MODEL, 'quota_metrics': 'UNKNOWN unless observed',
                   'input_token_ceiling': 'UNKNOWN; independent request/output/time limits enforced'}
         save(receipt, record)  # Crash and restart cannot reopen admission.
@@ -279,7 +333,11 @@ def launch():
                 save(STATE / 'route-block.json', {'reason': record['blocked']})
             return 1
         save(receipt, record)
-        prompt = HOME / 'nightly-task.md'
+        result_packet = STATE / (date + '-result.json')
+        save(result_packet, {'status': 'partial', 'handoff_status': 'pending',
+                             'reason': 'Admitted; worker has not produced a checkpoint', 'report': ''})
+        os.environ['ZERON_NIGHTLY_RESULT'] = str(result_packet)
+        os.environ['ZERON_NIGHTLY_SOURCE'] = source
         os.environ['ZERON_NIGHTLY_LEDGER'] = str(receipt)
         os.environ['HERMES_HOME'] = str(HOME)
         runtime = json.loads(subprocess.check_output(['hermes', '--print-runtime-command'], text=True))
@@ -290,19 +348,8 @@ def launch():
             raise RuntimeError('Installed runtime launcher changed; refuse unguarded launch')
         guarded = "runpy.run_path(" + repr(str(Path(__file__).resolve())) + ", run_name='zeron_guard')['run_worker']()"
         runtime[-1] = code.replace(marker, guarded)
-        result = supervise(runtime, cutoff, STATE / (date + '.log'))
-        record = json.loads(receipt.read_text())
-        record.update(state='finished' if result == 0 else 'interrupted', returncode=result,
-                      finished_at=datetime.now(timezone.utc).isoformat())
-        save(receipt, record)
-        result_packet = STATE / (date + '-result.json')
-        if result == 0 and result_packet.exists():
-            packet = json.loads(result_packet.read_text())
-            if packet.get('status') == 'complete' and packet.get('issue_url') and packet.get('pr_url'):
-                save(completed, {'source': source, 'result_packet': str(result_packet)})
-        print(json.dumps({'run_id': record['run_id'], 'state': record['state'],
-                          'requests': record['requests'], 'log': str(STATE / (date + '.log'))}))
-        return result
+        result = supervise(runtime, cutoff - PUBLICATION_SECONDS, STATE / (date + '.log'))
+        return finish_run(receipt, result_packet, result, cutoff)
 
 
 if __name__ == '__main__':
