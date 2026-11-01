@@ -132,6 +132,44 @@ Remote fixtures in unit tests are explicitly mocked; actual remote verification
 is required for the fix PR and any recovery report. No additional model call is
 needed to preserve or publish already-produced nighttime evidence.
 
+## Startup resilience and one-night operator exception
+
+On 2026-11-01 the 01:00 service failed resolving github.com before creating a
+receipt. The revised launcher saves a private receipt and result BEFORE network
+preflight, persists each fetch attempt, and permits only one retry for a named
+transient transport failure. Authentication errors are not retried. Failure
+notices are best-effort while the local evidence remains durable.
+
+`--owner-resume` is explicit operator recovery of a recorded pre-model failure,
+not automatic catch-up: it cannot restart an uncertain model dispatch, refill
+request/output counters, reopen a completed task, or run outside the hard work
+window. Original failed service evidence is imported with an explicit provenance
+flag when the broken old version created no receipt. Previously spent active
+time is retained rather than silently resetting it.
+
+The owner separately authorized bypassing ONLY the 30% quota reserve threshold
+for the 2026-11-01 night. `--owner-quota-override` can admit the matching blocked,
+unused record once; it records the approval and expires at that night's effective
+close, 05:00 Europe/Madrid. It does not change ops/policy.json or future nights.
+Known authentication/payment blocks, actual 100% exhaustion, UNKNOWN-after-block
+and within-run consumption thresholds still stop admission. The original route
+reserve-block file remains, so this is not a permanent unblock. Model requests,
+output reservations and the hard deadline are unchanged.
+
+Publication now builds its documentation commit on freshly read remote main,
+while retaining the actual reviewed-source SHA separately. Explicit recovery
+uses a NEW `-rebased` branch, never a force-update. Safe GitHub GETs get one bounded
+transport retry; uncertain writes and auth failures are not replayed. Report
+files are opened with O_NOFOLLOW and mode 0600 before any content write.
+
+Thirty-five tests cover the original guards plus handoff, startup/DNS failure,
+receipt-before-I/O, retry persistence, narrow operator recovery, one-date expiry,
+quota/auth separation, safe read retry and fresh-base publication regressions.
+Live evidence: recovered 2026-10-31 report rebased as PR #14 (one Markdown addition),
+and the owner-authorized resumed 2026-11-01 report published as PR #16 / issue #15
+with THREE model attempts. The latter remains explicitly PARTIAL; its supplemental
+source checks are distinguished from runtime/offline verification (NOT RUN).
+
 ## First-run inspection / rollback
 
 After the wake-up inspect the local dated JSON receipt and log, systemd service
