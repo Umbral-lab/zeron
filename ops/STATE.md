@@ -124,12 +124,23 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
     merged tree. B's owner-authorized local systemd timer is active on B's
     host; first scheduled unattended wake 2026-10-31 01:00 Europe/Madrid.
     Single-dispatcher rule: A will not dispatch B while that timer exists.
-    First scheduled wake 2026-10-31 01:00 CET: A polled branches, open PRs
-    and issues at 00:10, 01:13, 01:34, 01:55, 02:09 and 02:16 UTC — no
-    B-authored artifact arrived (no B-AUDIT-001 issue/PR, no reviews on
-    PRs #6/#7/#8). Observation posted to issue #4 (comment 6537674990).
-    Whether B's timer ran is NOT VERIFIED from A's host; B's own
-    receipt/ledger holds the reason. B receipt remains NOT VERIFIED.
+    First scheduled wake 2026-10-31 01:00 CET fired but lost its result:
+    four attempts exhausted in three tool rounds with no file or GitHub
+    handoff (cause recorded in B's README failure section). B repaired its
+    launcher (deterministic checkpoint/publication outside the model budget)
+    and republished the recovered evidence same-day: issue #10 + draft PR #11
+    (result PARTIAL) plus fix PR #12. A reviewed PR #12 independently at head
+    4f107e31 (test_handoff 10/10 re-run on A's host; test_http_wire_caps...
+    NOT RUN on A's host — httpx not installed here, test unchanged from the
+    reviewed PR #5 version) and integrated it as merge 1bb666f9; merged tree
+    byte-identical for ops/worker-b and re-tested 10/10. Review record:
+    ops/mailboxes/worker-a/reviews/REVIEW-PR12.md. Open finding F-A12-1: B's
+    recovery published PR #11 with parent 60e87c51 (stale pre-bootstrap
+    revision) — merging it as-is would delete integrated ops state; next B
+    action is a rebased republish or A-side explicit extraction. B's second
+    wake (2026-11-01 01:00 CET, fixed pipeline) outcome NOT VERIFIED at A's
+    close (~00:40 UTC, before B's job window). Reviews of A's PRs #6/#7/#8
+    remain outstanding from B.
   - BASE-002 unblocked (toolchain + binary exist); still NOT STARTED: real
     UI evidence needs a display path — remains NOT RUN on headless host.
   - OPS-001 open (issue #3): declarative policy only; no launcher receipt or
@@ -138,6 +149,24 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
     coupling, guard egress breadth, B-host facts NOT VERIFIED). Next A step:
     a minimal A-side run receipt plus policy mapping as a separate reviewed
     task before any unattended claim.
+  - OPS-001B next A-owned task (added 2026-11-01, R2, not started): the
+    release-check consent boundary. B's preserved 2026-10-31 audit finding 1
+    (release checking not consent-gated by the auto-install setting) is now
+    source-grounded by A on current main: Updater::spawn runs for every
+    install independent of workspace sync (crates/engine/src/lib.rs core
+    assembly); check_loop issues check_once HTTP whenever due while
+    ZERON_AUTO_UPDATE / desktop_auto_update_enabled gate only
+    auto_apply_when_idle (crates/update/src/lib.rs); fetch_latest does
+    manifest.json with latest.txt fallback; release_base derives from the
+    edge URL with a ZERON_RELEASES_URL override. Baseline inherited behavior,
+    not a fork regression. B's finding 2 (conditional Grok adapter npm
+    prewarm at startup) remains UNVERIFIED — predicate reachability needs
+    deterministic resolver fixtures. Acceptance direction from B's packet:
+    default local startup/idle issues no release requests without explicit
+    permission; checking vs installing separated; explicit user-triggered
+    checks preserved. Inherited local_first test expects release requests
+    after check_now — changing this is an R2 product decision needing owner
+    visibility and B/Sol review.
 - Worker A runtime (unchanged): provider custom, base_url
   http://192.168.10.244:8080/v1, model qwen3.8-flash-next-iq3_xxs
   (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
@@ -166,15 +195,26 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   protection API 403 for the App (protection state NOT VERIFIED — operator
   item). NOT RUN: full-workspace test/clippy run, UI evidence (headless),
   transitive license audit, B-host state.
-- Last nightly usage: Qwen self-hosted route only (one agent session plus
-  bounded deterministic probes and waits; provider does not report totals —
-  quota UNKNOWN, never treated as unlimited); no Terra/Sol/GPT use; no
-  retry storm after one expired-token remint.
-- Next action (next scheduled run, forecast 2026-11-01 OK verdict): consume
-  B reviews of PRs #6 (c78e2601), #7 (a0ef50a2) and #8 (d0fcab13); integrate
-  approved candidates only under the integration lock; read B's wake receipt
-  via issue #4 as OPS-001 evidence; if B artifacts are still absent after a
-  second night, flag the B-wake failure to the owner instead of re-dispatching.
+- Checks verified 2026-11-01 nightly: guard admit OK_LATE_GRACE (start
+  00:01:40Z, deadline 04:00Z, receipts 0600 outside Git); remote reads via App
+  token (PR/issue listing, review lists); B test suites re-run on A's host at
+  PR #12 head (10/10 handoff; 8/9 + 1 NOT RUN httpx-missing on the inherited
+  file); merged-tree byte-identity diff for ops/worker-b and 10/10 re-run on
+  main 1bb666f9 before push; A source grounding of audit finding 1 against
+  crates/engine/src/lib.rs and crates/update/src/lib.rs on main (no cargo run
+  needed for these reads). NOT RUN: full-workspace cargo suites, clippy, UI
+  evidence (headless), B-host state, B's 2026-11-01 wake outcome.
+- Last nightly usage 2026-11-01: Qwen self-hosted route only (one agent
+  session plus bounded deterministic probes; provider does not report totals —
+  quota UNKNOWN, never treated as unlimited); no Terra/Sol/GPT use; no error
+  retries this run (one routine pre-work token remint, no storm).
+- Next action (next scheduled run): first check B's 2026-11-01 wake artifacts
+  (fixed pipeline, issue/PR via the new deterministic publisher) and B reviews
+  of PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13); if the PR #11 stale-base
+  republish did not arrive from B, A integrates the 2026-10-31 audit report as
+  an explicitly extracted single-file commit; then start OPS-001B (release-
+  check consent boundary) as the primary A task; integrate approved A candidates
+  only after B/Sol review under the integration lock.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
