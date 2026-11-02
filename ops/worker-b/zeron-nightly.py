@@ -49,8 +49,11 @@ def save(path, value):
 
 
 def quota():
-    result = subprocess.run(['hermes', 'usage', '--provider', 'openai-codex', '--json'],
-                            capture_output=True, text=True, timeout=30)
+    try:
+        result = subprocess.run(['hermes', 'usage', '--provider', 'openai-codex', '--json'],
+                                capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
     if result.returncode:
         return None
     try:
@@ -62,6 +65,13 @@ def quota():
         return None
 
 
+def quota_override_active(ledger, now=None):
+    now = now or datetime.now(timezone.utc)
+    approval = ledger.get('quota_reserve_override') or {}
+    return (approval.get('date') == ledger.get('date') == now.astimezone(ZONE).date().isoformat()
+            and approval.get('expires_at', 0) > now.timestamp())
+
+
 def quota_check(ledger, sample):
     # UNKNOWN cannot clear a previously observed block.
     if sample is None:
@@ -69,8 +79,12 @@ def quota_check(ledger, sample):
             raise RuntimeError('Known route/quota block survives UNKNOWN')
         return
     windows = sample['windows']
+    override = quota_override_active(ledger)
     for item in windows:
-        if float(item['used_percent']) >= 70:
+        if float(item['used_percent']) >= 100:
+            ledger['blocked'] = 'Observed provider allowance exhaustion'
+            raise RuntimeError(ledger['blocked'])
+        if float(item['used_percent']) >= 70 and not override:
             ledger['blocked'] = 'Quota reserve reached'
             raise RuntimeError(ledger['blocked'])
     baseline = ledger.setdefault('quota_baseline', windows)
@@ -81,6 +95,9 @@ def quota_check(ledger, sample):
         if key in old and float(item['used_percent']) - old[key] >= limit:
             ledger['blocked'] = 'Observed nightly account consumption threshold reached'
             raise RuntimeError(ledger['blocked'])
+    if override and ledger.get('blocked') == 'Quota reserve reached':
+        ledger['reserve_block_overridden_for_date'] = ledger['date']
+        ledger.pop('blocked')
     if ledger.get('blocked'):
         raise RuntimeError(ledger['blocked'])
 
@@ -261,8 +278,9 @@ def finish_run(receipt, result_path, result, cutoff):
         packet['status'] = 'partial'
         packet['reason'] = 'Worker interrupted or failed; preserving available checkpoint'
     report_path = STATE / (record['date'] + '-report.md')
-    with report_path.open('w') as stream:
-        os.fchmod(stream.fileno(), 0o600)
+    fd = os.open(report_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, 'w') as stream:
         stream.write(render(record, packet))
         stream.flush()
         os.fsync(stream.fileno())
@@ -286,11 +304,87 @@ def finish_run(receipt, result_path, result, cutoff):
     return code
 
 
-def launch():
+def resume_allowed(record, now):
+    """Operator-only recovery of a proven pre-model failure, never an inference retry."""
+    local = now.astimezone(ZONE)
+    _, _, end = window(now)
+    return (local.hour >= 1 and now.astimezone(timezone.utc) < end
+            and record.get('state') == 'preflight_failed'
+            and record.get('requests', 0) == 0 and record.get('reserved_generated', 0) == 0
+            and not record.get('model_started_at') and not record.get('owner_resume_count')
+            and record.get('preflight_attempts', 0) < 2)
+
+
+def fetch_source(receipt, record):
+    """Persist BEFORE I/O and permit only one durable transient transport retry."""
+    transient = ('could not resolve host', 'temporary failure in name resolution',
+                 'failed to connect', 'connection timed out', 'connection reset',
+                 'network is unreachable')
+    while record.get('preflight_attempts', 0) < 2:
+        record['preflight_attempts'] = record.get('preflight_attempts', 0) + 1
+        record['state'] = 'preflight'
+        save(receipt, record)
+        try:
+            done = subprocess.run(['git', 'fetch', 'origin', 'main'], cwd=ROOT,
+                                  capture_output=True, text=True, timeout=30)
+            if done.returncode == 0:
+                source = subprocess.check_output(['git', 'rev-parse', 'origin/main'],
+                                                 cwd=ROOT, text=True, timeout=10).strip()
+                import re
+                if not re.fullmatch(r'[0-9a-f]{40}', source):
+                    raise ValueError('Invalid fetched revision')
+                record.update(source=source, state='admitted', preflight_status='passed')
+                save(receipt, record)
+                return source
+            error = done.stderr.strip()[:1000]
+            retryable = any(term in error.lower() for term in transient)
+        except subprocess.TimeoutExpired:
+            error, retryable = 'Repository fetch timed out', True
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            error, retryable = 'Repository preflight failed: ' + type(exc).__name__, False
+        record.update(state='preflight_failed', preflight_status='failed', preflight_error=error)
+        save(receipt, record)
+        if not retryable or record['preflight_attempts'] >= 2:
+            return None
+        time.sleep(2)
+    return None
+
+
+def notify_preflight_failure(receipt, record, cutoff):
+    """Best effort only: a network outage must still leave private durable evidence."""
+    from zeron_nightly_publish import api, sanitize
+    record['preflight_notice_attempted'] = True
+    save(receipt, record)
+    body = ('B startup state ' + record.get('state', 'failed') + ' for ' + record['run_id']
+            + '. No model was dispatched. Fetch attempts: ' + str(record.get('preflight_attempts', 0))
+            + '. ' + sanitize(record.get('blocked') or record.get('preflight_error', 'Unknown startup error')))
+    try:
+        result = api('POST', 'repos/Umbral-lab/zeron/issues/4/comments', {'body': body}, cutoff)
+        actual = api('GET', 'repos/Umbral-lab/zeron/issues/comments/' + str(result['id']), None, cutoff)
+        if actual['body'] != body or actual['user']['login'] != 'umbral-labs-dev[bot]':
+            raise RuntimeError('Preflight notice verification failed')
+        record['preflight_notice'] = actual['html_url']
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        record['preflight_notice_error'] = type(exc).__name__
+    save(receipt, record)
+
+
+def quota_resume_allowed(record, now):
+    local = now.astimezone(ZONE)
+    _, _, end = window(now)
+    return (local.date().isoformat() == '2026-11-01' and local.hour >= 1
+            and now.astimezone(timezone.utc) < end
+            and record.get('state') == 'blocked' and record.get('blocked') == 'Quota reserve reached'
+            and record.get('requests', 0) == 0 and record.get('reserved_generated', 0) == 0
+            and record.get('preflight_status') == 'passed' and record.get('source')
+            and not record.get('model_started_at') and not record.get('owner_quota_override_count'))
+
+
+def launch(owner_resume=False, quota_override=False):
     started = time.monotonic()
     now = datetime.now(timezone.utc)
     date, admitted, end = window(now)
-    if not admitted:
+    if not admitted and not (owner_resume or quota_override):
         print('SKIP: outside 01:00–01:15 Europe/Madrid admission window')
         return 0
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -302,35 +396,81 @@ def launch():
             return 0
         receipt = STATE / (date + '.json')
         if receipt.exists():
-            print('SKIP: this local date already admitted; no retry/refill')
-            return 0
+            record = json.loads(receipt.read_text())
+            if quota_override:
+                if not quota_resume_allowed(record, now):
+                    raise RuntimeError('This one-night quota override cannot admit this record')
+                record.update(owner_quota_override_count=1,
+                              quota_reserve_override={'date': date, 'expires_at': end.timestamp(),
+                              'approved_at': now.isoformat(),
+                              'authorization': 'Owner explicitly instructed: override that limit, just for tonight'})
+            else:
+                if not owner_resume or not resume_allowed(record, now):
+                    print('SKIP: existing admission cannot be retried or refilled')
+                    return 0
+                record.update(owner_resume_count=1, owner_resume_at=now.isoformat(),
+                              owner_resume_reason='Explicit owner instruction to repair and resume this pre-model failure')
+        else:
+            if owner_resume or quota_override:
+                raise RuntimeError('Owner recovery requires a recorded pre-model failure')
+            record = {'run_id': 'zeron:B:' + date, 'date': date, 'source': None,
+                      'requests': 0, 'reserved_generated': 0, 'preflight_attempts': 0,
+                      'state': 'preflight', 'first_started_at': now.isoformat(),
+                      'model': MODEL, 'quota_metrics': 'UNKNOWN unless observed',
+                      'input_token_ceiling': 'UNKNOWN; independent request/output/time limits enforced'}
+        allowance = max(0, MAX_SECONDS - record.get('prior_active_seconds', 0))
+        cutoff = min(time.monotonic() + max(0, end.timestamp() - time.time()), started + allowance)
+        deadline = time.time() + max(0, cutoff - time.monotonic())
+        record.update(deadline=deadline, inference_deadline=deadline-PUBLICATION_SECONDS,
+                      monotonic_deadline=cutoff)
+        save(receipt, record)  # Admission exists before any network/tool operation.
+        result_packet = STATE / (date + '-result.json')
+        save(result_packet, {'status': 'partial', 'handoff_status': 'pending',
+                             'reason': 'Repository preflight in progress; no inference dispatched', 'report': ''})
         if (STATE / 'route-block.json').exists():
-            print('BLOCKED: route parked pending operator reconciliation')
+            block = json.loads((STATE / 'route-block.json').read_text())
+            if block.get('reason') != 'Quota reserve reached' or not quota_override_active(record, now):
+                record['state'] = 'blocked'
+                save(receipt, record)
+                print('BLOCKED: route parked pending operator reconciliation')
+                return 1
+        if quota_override:
+            source = record['source']  # Reuse the successful preflight; do not reset/retry network counters.
+            record['state'] = 'admitted'
+            save(receipt, record)
+        else:
+            source = fetch_source(receipt, record)
+        if source is None:
+            record.update(returncode=1, finished_at=datetime.now(timezone.utc).isoformat())
+            save(receipt, record)
+            save(result_packet, {'status': 'partial', 'handoff_status': 'pending',
+                                 'reason': record.get('preflight_error'), 'report': 'No model dispatched.'})
+            notify_preflight_failure(receipt, record, cutoff)
+            print('PREFLIGHT FAILED: durable receipt retained; no model dispatched')
             return 1
-        subprocess.run(['git', 'fetch', 'origin', 'main'], cwd=ROOT, check=True, timeout=30,
-                       stdout=subprocess.DEVNULL)
-        source = subprocess.check_output(['git', 'rev-parse', 'origin/main'],
-                                         cwd=ROOT, text=True, timeout=10).strip()
         completed = STATE / 'last-completed-source.json'
         if completed.exists() and json.loads(completed.read_text()).get('source') == source:
+            record['state'] = 'skipped_no_work'
+            save(receipt, record)
             print('SKIP: assigned source-audit task already completed for unchanged main')
             return 0
-        cutoff = min(time.monotonic() + max(0, end.timestamp() - time.time()), started + MAX_SECONDS)
-        deadline = time.time() + max(0, cutoff - time.monotonic())
-        record = {'run_id': 'zeron:B:' + date, 'date': date, 'source': source,
-                  'requests': 0, 'reserved_generated': 0,
-                  'deadline': deadline, 'inference_deadline': deadline - PUBLICATION_SECONDS,
-                  'monotonic_deadline': cutoff, 'state': 'admitted',
-                  'model': MODEL, 'quota_metrics': 'UNKNOWN unless observed',
-                  'input_token_ceiling': 'UNKNOWN; independent request/output/time limits enforced'}
-        save(receipt, record)  # Crash and restart cannot reopen admission.
+        if cutoff - time.monotonic() <= PUBLICATION_SECONDS + 15:
+            record['state'] = 'blocked_deadline'
+            save(receipt, record)
+            return 1
         try:
             quota_check(record, quota())
         except RuntimeError:
-            record['state'] = 'blocked'
+            record.update(state='blocked', returncode=1, finished_at=datetime.now(timezone.utc).isoformat())
             save(receipt, record)
+            save(result_packet, {'status': 'partial', 'handoff_status': 'pending',
+                                 'reason': record.get('blocked', 'Quota admission blocked'),
+                                 'report': 'No model dispatched; startup completed but quota policy blocks admission.'})
             if record.get('blocked') == 'Quota reserve reached':
                 save(STATE / 'route-block.json', {'reason': record['blocked']})
+            notify_preflight_failure(receipt, record, cutoff)
+            record['prior_active_seconds'] = record.get('prior_active_seconds', 0) + (time.monotonic() - started)
+            save(receipt, record)
             return 1
         save(receipt, record)
         result_packet = STATE / (date + '-result.json')
@@ -348,6 +488,8 @@ def launch():
             raise RuntimeError('Installed runtime launcher changed; refuse unguarded launch')
         guarded = "runpy.run_path(" + repr(str(Path(__file__).resolve())) + ", run_name='zeron_guard')['run_worker']()"
         runtime[-1] = code.replace(marker, guarded)
+        record['model_started_at'] = datetime.now(timezone.utc).isoformat()
+        save(receipt, record)  # Zero recorded requests after this point is still an uncertain dispatch.
         result = supervise(runtime, cutoff - PUBLICATION_SECONDS, STATE / (date + '.log'))
         return finish_run(receipt, result_packet, result, cutoff)
 
@@ -355,6 +497,10 @@ def launch():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--plan', action='store_true')
+    parser.add_argument('--owner-resume', action='store_true',
+                        help='Explicit operator recovery of a proven pre-model failure only')
+    parser.add_argument('--owner-quota-override', action='store_true',
+                        help='Owner-approved 2026-11-01 reserve-threshold exception only')
     args = parser.parse_args()
     if args.plan:
         day, admitted, end = window(datetime.now(timezone.utc))
@@ -362,4 +508,4 @@ if __name__ == '__main__':
                           'model': MODEL, 'maximum_requests': MAX_REQUESTS,
                           'maximum_job_seconds': MAX_SECONDS, 'maximum_generated_reservation': 4000}))
     else:
-        raise SystemExit(launch())
+        raise SystemExit(launch(owner_resume=args.owner_resume, quota_override=args.owner_quota_override))

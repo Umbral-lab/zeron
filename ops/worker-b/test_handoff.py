@@ -27,6 +27,8 @@ class FakeGitHub:
     def __call__(self, method, path, payload, deadline):
         self.calls.append((method, path, payload))
         user = {'login': 'wrong-fixture' if self.wrong_actor else pub.ACTOR}
+        if method == 'GET' and path.endswith('/git/ref/heads/main'):
+            return {'object': {'sha': 'e' * 40}}
         if method == 'GET' and '/git/commits/' in path:
             return {'tree': {'sha': 'b' * 40}}
         if method == 'POST' and path.endswith('/git/trees'):
@@ -146,6 +148,43 @@ class HandoffTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 pub.api('POST', 'fixture', {}, time.monotonic() - 1)
             network.assert_not_called()
+
+    def test_stale_review_source_is_not_publication_parent(self):
+        fake = FakeGitHub()
+        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nReport.'})
+        _, _, packet = self.finish(packet, fake)
+        self.assertEqual(fake.commit['parents'], ['e' * 40])
+        self.assertEqual(packet['publication_base'], 'e' * 40)
+        self.assertIn('a' * 40, fake.content)
+
+    def test_recovery_uses_a_new_branch_not_a_force_update(self):
+        fake = FakeGitHub()
+        packet = pub.checkpoint({'completed': False, 'final_response': 'Existing partial evidence.'})
+        pub.publish(self.record, packet, time.monotonic() + 90, call=fake, recovery=True)
+        refs = [payload for method, path, payload in fake.calls if method == 'POST' and path.endswith('/git/refs')]
+        self.assertEqual(refs[0]['ref'], 'refs/heads/worker-b/audit-2026-11-01-rebased')
+        self.assertFalse(any(method == 'PATCH' and '/git/refs/' in path for method, path, _ in fake.calls))
+        self.assertEqual(fake.commit['parents'], ['e' * 40])
+
+    def test_read_transport_retry_is_bounded_and_writes_are_not_replayed(self):
+        import subprocess
+        timeout = subprocess.TimeoutExpired('fixture', 30)
+        ok = subprocess.CompletedProcess(['fixture'], 0, '{}', '')
+        with patch.object(pub.subprocess, 'run', side_effect=[timeout, ok]) as network:
+            self.assertEqual(pub.api('GET', 'fixture', None, time.monotonic() + 90), {})
+            self.assertEqual(network.call_count, 2)
+        with patch.object(pub.subprocess, 'run', side_effect=timeout) as network:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                pub.api('POST', 'fixture', {}, time.monotonic() + 90)
+            self.assertEqual(network.call_count, 1)
+
+    def test_auth_failure_is_not_read_retried(self):
+        import subprocess
+        failure = subprocess.CompletedProcess(['fixture'], 1, '', 'App authentication/command failed: RuntimeError')
+        with patch.object(pub.subprocess, 'run', return_value=failure) as network:
+            with self.assertRaises(RuntimeError):
+                pub.api('GET', 'fixture', None, time.monotonic() + 90)
+            self.assertEqual(network.call_count, 1)
 
     def test_secret_material_is_redacted_or_refused(self):
         self.assertNotIn('ghp_' + 'a' * 30, pub.sanitize('ghp_' + 'a' * 30))

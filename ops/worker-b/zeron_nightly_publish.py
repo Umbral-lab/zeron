@@ -49,43 +49,57 @@ def render(record, packet):
 
 
 def api(method, path, payload, deadline):
-    remaining = deadline - time.monotonic()
-    if remaining < 3:
-        raise TimeoutError('Publication deadline reached; checkpoint retained locally')
     command = ['python3', str(HELPER), 'api', '--method', method, path]
     if payload is not None:
         command += ['--input', '-']
-    result = subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
-                            text=True, capture_output=True, timeout=min(30, remaining))
-    if result.returncode:
-        raise RuntimeError('GitHub publication request failed: ' + method + ' ' + path)
-    return json.loads(result.stdout) if result.stdout.strip() else None
+    for attempt in range(2):
+        remaining = deadline - time.monotonic()
+        if remaining < 3:
+            raise TimeoutError('Publication deadline reached; checkpoint retained locally')
+        try:
+            result = subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
+                                    text=True, capture_output=True, timeout=min(30, remaining))
+        except subprocess.TimeoutExpired:
+            if method == 'GET' and attempt == 0:
+                continue  # Safe, bounded read retry; never replay an uncertain write.
+            raise
+        if result.returncode:
+            transient = any(word in result.stderr for word in ('ConnectionError', 'Timeout', 'Could not resolve'))
+            if method == 'GET' and attempt == 0 and transient:
+                continue
+            raise RuntimeError('GitHub publication request failed: ' + method + ' ' + path)
+        return json.loads(result.stdout) if result.stdout.strip() else None
 
 
-def publish(record, packet, deadline, call=api):
+def publish(record, packet, deadline, call=api, recovery=False):
     """Publish fixed-path evidence, then verify exact content and target objects."""
     date, source = record['date'], record['source']
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date) or not re.fullmatch(r'[0-9a-f]{40}', source):
         raise ValueError('Invalid run identifiers')
     prefix = 'repos/' + REPO
-    branch = 'worker-b/audit-' + date
+    branch = 'worker-b/audit-' + date + ('-rebased' if recovery else '')
     path = 'docs/audits/' + date + '-worker-b.md'
     content = render(record, packet)
     # The final content checkpoint is local before any network side effect.
-    base = call('GET', prefix + '/git/commits/' + source, None, deadline)
+    main = call('GET', prefix + '/git/ref/heads/main', None, deadline)
+    publication_base = main['object']['sha']
+    if not re.fullmatch(r'[0-9a-f]{40}', publication_base):
+        raise ValueError('Invalid publication base')
+    packet['publication_base'] = publication_base
+    base = call('GET', prefix + '/git/commits/' + publication_base, None, deadline)
     tree = call('POST', prefix + '/git/trees', {'base_tree': base['tree']['sha'],
         'tree': [{'path': path, 'mode': '100644', 'type': 'blob', 'content': content}]}, deadline)
     stamp = datetime.now(timezone.utc).isoformat()
     commit = call('POST', prefix + '/git/commits', {
         'message': 'Record B nightly ' + packet['status'] + ' result for ' + date,
-        'tree': tree['sha'], 'parents': [source],
+        'tree': tree['sha'], 'parents': [publication_base],
         'author': dict(IDENTITY, date=stamp), 'committer': dict(IDENTITY, date=stamp)}, deadline)
     # Same-day admission prevents repeats. A ref collision fails closed; never force-update.
     call('POST', prefix + '/git/refs', {'ref': 'refs/heads/' + branch, 'sha': commit['sha']}, deadline)
     status = packet['status'].upper()
     title = 'B nightly ' + date + ': ' + status
     body = ('Task status: **' + status + '**.\n\nRun `' + record['run_id'] + '`, source `' + source
-            + '`, result head `' + commit['sha'] + '`.\n\n' + content
+            + '`, result head `' + commit['sha'] + '`, publication base `' + publication_base + '`.\n\n' + content
             + '\n\nA: review the preserved evidence. Partial work is not approval or task acceptance. '
             'No model allowance was spent on this publication. Related automation: #4.\n')
     issue = call('POST', prefix + '/issues', {'title': title, 'body': body}, deadline)
