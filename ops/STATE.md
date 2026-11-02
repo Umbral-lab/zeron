@@ -55,7 +55,7 @@ No nightly run, product build, independent review or runtime enforcement has bee
 verified. Unattended inference is BLOCKED. A resumes canonical state ownership
 after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
-## Current position (worker A; supersedes the earlier 2026-10-30 overlays; imported prefix bytes preserved)
+## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
 - Runs 2026-10-30: three A activities on this date — morning bootstrap-baseline
   run (job 4103065fd3d6, 08:37 UTC, bounded R0), owner-directed integration of
@@ -208,13 +208,40 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   session plus bounded deterministic probes; provider does not report totals —
   quota UNKNOWN, never treated as unlimited); no Terra/Sol/GPT use; no error
   retries this run (one routine pre-work token remint, no storm).
-- Next action (next scheduled run): first check B's 2026-11-01 wake artifacts
-  (fixed pipeline, issue/PR via the new deterministic publisher) and B reviews
-  of PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13); if the PR #11 stale-base
-  republish did not arrive from B, A integrates the 2026-10-31 audit report as
-  an explicitly extracted single-file commit; then start OPS-001B (release-
-  check consent boundary) as the primary A task; integrate approved A candidates
-  only after B/Sol review under the integration lock.
+- Nightly run 2026-11-02 (guard receipt OK_LATE_GRACE, start 00:01:37Z,
+  deadline 04:00Z): B's 2026-11-01 wake landed via the fixed deterministic
+  publisher. A independently reviewed and integrated four B-authored PRs in
+  one sequence on main: PR #14 (rebased 2026-10-31 audit republish, closes
+  F-A12-1) via merge ebd91a25; PR #16 (2026-11-01 audit record, PARTIAL,
+  consent-gate finding input to OPS-001B) via 71071c44; PR #18 (Muse
+  stdout-EOF crash-diagnostics product fix, issue #9) via 80df5d38; PR #17
+  (B launcher preflight/DNS durability + owner one-night quota exception,
+  R2) via 83803685 (new main head, pushed). Each reviewed head verified
+  ancestor of the merge; each changed path byte-identical on the merged
+  tree; combined tree re-tested: ops/worker-b 35-test discovery 34 pass + 1
+  httpx NOT RUN (unchanged inherited test), muse target 18/18, muse target
+  10 repeat runs 10 ok / 0 fail, independent RED reproduction of the Muse
+  fix on A's host (base muse/mod.rs → exit 101, stdout-closed error).
+  Review records: ops/mailboxes/worker-a/reviews/REVIEW-PR14-PR16.md,
+  REVIEW-PR18.md, REVIEW-PR17.md. New retained baseline notices: cargo fmt
+  flags a pre-existing diff in crates/harness/src/codex/mod.rs; cargo
+  clippy fails on two pre-existing non-octal permission literals in
+  crates/harness/src/skills.rs:883,920 (both on base main). Open notice
+  F-A17-1: the date-bound owner quota exception embedded in B's launcher
+  must be replaced by an operator-owned override artifact or removed after
+  the covered night; it is fenced to 2026-11-01 and cannot admit on later
+  dates. Issue #9 closed on integration. PRs #14/#16/#17/#18 show merged on
+  GitHub; branch-protection API still 403 for the App (NOT VERIFIED,
+  operator item).
+- Next action (next scheduled run): primary A task is OPS-001B (release-check
+  consent boundary) — B's pinned audit records docs/audits/2026-10-31-worker-b.md
+  and 2026-11-01-worker-b.md now give a source-grounded finding and a five-step
+  acceptance plan; the inherited local_first test expectation makes this an R2
+  product decision needing owner visibility plus B/Sol review before any
+  integration. Also outstanding: B's independent reviews of A's PRs #6
+  (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates
+  without them; check B's 2026-11-02 wake against main 83803685. Integrate
+  approved A candidates only after B/Sol review under the integration lock.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
