@@ -6,7 +6,7 @@ A scenario is NDJSON, one step per line:
       wait for the client to send that frame (frames arriving out of order are
       kept for later expects); bind values from it.
   {"emit": <frame>}   write a frame; "$NAME" strings are replaced by bound values.
-  {"stderr": "..."} / {"sleep": ms} / {"exit": code}
+  {"stderr": "..."} / {"close_stdout": true} / {"sleep": ms} / {"exit": code}
 After the last step it reads until the client closes stdin.
 
 Environment: MUSE_FAKE_SCENARIO (session runs) and MUSE_FAKE_LOG (a directory
@@ -125,6 +125,14 @@ for step in steps:
     elif "stderr" in step:
         sys.stderr.write(step["stderr"] + "\n")
         sys.stderr.flush()
+    elif "close_stdout" in step:
+        fd = sys.stdout.fileno()
+        sys.stdout.close()
+        # Python's standard stream wrapper may leave the descriptor open.
+        try:
+            os.close(fd)
+        except OSError:
+            pass
     elif "sleep" in step:
         time.sleep(step["sleep"] / 1000)
     elif "exit" in step:
