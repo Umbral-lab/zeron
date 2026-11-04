@@ -1014,12 +1014,15 @@ impl Engine {
             tokens: Arc::new(auth.clone()),
         });
         core.previews.start(projects, preview_signaling).await;
-        // Release checker: polls {edge}/releases hourly (wall clock); headless
-        // installs with ZERON_AUTO_UPDATE=1 apply + restart themselves — gated
+        // Release checker: polls {edge}/releases hourly (wall clock) ONLY with
+        // background-check consent (`ZERON_UPDATE_CHECKS=1`; default off =
+        // local, no scheduled release egress). Headless installs with
+        // ZERON_AUTO_UPDATE=1 additionally apply + restart themselves — gated
         // on quiescence so a restart never lands under a live run or open PTY.
-        // Spawned for every install: application updates must not depend on
-        // workspace sync being enabled — the feed is the public release feed
-        // (served without authentication), not an edge feature.
+        // Spawned for every install: when the user has granted check consent,
+        // application updates must not depend on workspace sync being enabled —
+        // the feed is the public release feed (served without authentication),
+        // not an edge feature.
         let quiescent: zeron_update::QuiescentCheck = {
             let sessions = core.sessions.clone();
             let terminals = core.terminals.clone();
@@ -1030,7 +1033,12 @@ impl Engine {
             config.edge_url.trim_end_matches('/')
         ));
         let updater = zeron_update::Updater::spawn(config.edge_url.clone(), Some(quiescent));
-        if let Some(mut token_changes) = edge.as_ref().and_then(EdgeConfig::token_changes) {
+        // An auth-state change is not an explicit user request: the automatic
+        // post-login refresh only runs under the same background-check consent
+        // as the scheduler. Without it the wake task is not even spawned.
+        if zeron_update::background_update_checks_enabled()
+            && let Some(mut token_changes) = edge.as_ref().and_then(EdgeConfig::token_changes)
+        {
             let updater_for_tokens = updater.clone();
             let wake = tokio::spawn(async move {
                 while token_changes.changed().await.is_ok() {

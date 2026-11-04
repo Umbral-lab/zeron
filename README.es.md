@@ -14,7 +14,7 @@ Descarga la última versión para tu plataforma desde [GitHub Releases](https://
 - **Windows** — `zeron-<version>-windows-x86_64-setup.exe`
 - **Linux** — `zeron-<version>-linux-<arch>.tar.gz` y luego ejecuta el `install.sh` que incluye
 
-No necesitas cuenta ni conexión a internet; las sesiones se quedan en tu dispositivo. La app se actualiza sola.
+No necesitas cuenta ni conexión a internet; las sesiones se quedan en tu dispositivo. Y nada comprueba actualizaciones por su cuenta: usa «Check for Updates…» cuando tú quieras, o concede las comprobaciones programadas con `ZERON_UPDATE_CHECKS=1` — ver [docs/reference/updates.md](docs/reference/updates.md).
 
 ## Modo headless (CLI)
 

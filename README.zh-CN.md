@@ -14,7 +14,7 @@
 - **Windows** — `zeron-<version>-windows-x86_64-setup.exe`
 - **Linux** — `zeron-<version>-linux-<arch>.tar.gz`，解压后运行里面的 `install.sh`
 
-不用账号，也不用联网，会话就存在这台设备上。应用会自动更新。
+不用账号，也不用联网，会话就存在这台设备上。更新也不会自行发生：想查的时候选 "Check for Updates…"，或用 `ZERON_UPDATE_CHECKS=1` 授权定时检查 — 见 [docs/reference/updates.md](docs/reference/updates.md)。
 
 ## 无界面运行（CLI）
 

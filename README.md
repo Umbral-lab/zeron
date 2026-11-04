@@ -14,7 +14,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 - **Windows** — `zeron-<version>-windows-x86_64-setup.exe`
 - **Linux** — `zeron-<version>-linux-<arch>.tar.gz`, then run its `install.sh`
 
-No account or network connection is needed; sessions stay on your device. The app updates itself.
+No account or network connection is needed; sessions stay on your device. Nothing checks for updates on its own either: use "Check for Updates…" when you want to, or grant scheduled checks with `ZERON_UPDATE_CHECKS=1` — see [docs/reference/updates.md](docs/reference/updates.md).
 
 ## Headless (CLI)
 

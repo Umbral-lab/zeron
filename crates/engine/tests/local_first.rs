@@ -354,6 +354,44 @@ async fn local_runtime_checks_public_releases_without_starting_edge_links() {
     edge_task.abort();
 }
 
+/// A woken local runtime must not turn into release egress on its own: pokes
+/// re-read the wall clock, and with background-check consent unset
+/// (`ZERON_UPDATE_CHECKS`, the default) nothing is ever due to send. Before the
+/// consent gate existed the same wakes reached the scheduled check once the
+/// initial delay elapsed.
+#[tokio::test]
+async fn local_runtime_wakes_do_not_poll_releases_without_check_consent() {
+    let dir = tempfile::tempdir().unwrap();
+    let (edge_url, requests, edge_task) = rejecting_edge().await;
+    let config = config(dir.path(), edge_url, Some("client_test"), None);
+    let auth = Engine::build_auth(&config).await;
+    let scope = Engine::initial_workspace_scope(&auth);
+    let profile = Engine::resolve_profile(&config, &auth, scope)
+        .unwrap()
+        .expect("local profile is ready");
+
+    let runtime = Engine::assemble_runtime(&config, auth, profile)
+        .await
+        .unwrap();
+    let updater = runtime
+        .core()
+        .updater()
+        .expect("local runtime starts the public release checker");
+
+    for _ in 0..5 {
+        updater.poke();
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    }
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        0,
+        "wakes without background-check consent must not poll the release feed"
+    );
+
+    runtime.shutdown().await;
+    edge_task.abort();
+}
+
 #[tokio::test]
 async fn revoked_captured_session_stays_on_its_synced_cache() {
     let dir = tempfile::tempdir().unwrap();
