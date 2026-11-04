@@ -233,15 +233,47 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   dates. Issue #9 closed on integration. PRs #14/#16/#17/#18 show merged on
   GitHub; branch-protection API still 403 for the App (NOT VERIFIED,
   operator item).
-- Next action (next scheduled run): primary A task is OPS-001B (release-check
-  consent boundary) — B's pinned audit records docs/audits/2026-10-31-worker-b.md
-  and 2026-11-01-worker-b.md now give a source-grounded finding and a five-step
-  acceptance plan; the inherited local_first test expectation makes this an R2
-  product decision needing owner visibility plus B/Sol review before any
-  integration. Also outstanding: B's independent reviews of A's PRs #6
-  (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates
-  without them; check B's 2026-11-02 wake against main 83803685. Integrate
-  approved A candidates only after B/Sol review under the integration lock.
+- Nightly run 2026-11-03: FAILED before any product work — the agent run
+  aborted with a Hermes conversation-save error ("couldn't save this
+  conversation to disk"); no candidate, no remote write, no lease opened.
+  Tonight's disk check shows the Hermes home healthy (95G free, state.db
+  writable), so the cause was not reproduced; recorded as an unresolved
+  runtime defect, not as idle-by-choice.
+- Nightly run 2026-11-04 (A guard admitted 00:0xZ window, deadline 04:00Z):
+  OPS-001B implemented on branch task/ops-001b-release-check-consent, base
+  eb1958ba, head a17e1148, opened as PR #19 (labels r2, ops-001) with issue
+  #3 updated. Source fact corrected: ZERON_UPDATE_CHECKS does not exist on
+  origin/main at eb1958ba, so the consent gate is new work, not a fix to an
+  existing switch. Baseline behavior reproduced on a throwaway worktree of
+  eb1958ba (probes kept uncommitted): default desktop spawn polled the
+  release feed once within 4.11 s with no consent in the environment
+  (left: 1 / right: 0), a wake inside the 2 s desktop delay reached the feed
+  in 0.61 s, and crates/engine/src/lib.rs called updater.check_now() on every
+  EdgeConfig::token_changes event. Candidate GREEN: zeron-update 21 lib + 1
+  new integration test 0 failed; zeron-engine local_first 12/12 including the
+  new wake test covering B's audit acceptance step 1; zeron background_engine
+  1/1; RED/GREEN re-run with per-side isolated target dirs after a first
+  attempt was contaminated by a shared CARGO_TARGET_DIR. Two honest
+  corrections during the run: a test stub that answered before reading the
+  request (harness defect, fixed) and a scheduler test that mutated shared
+  process env while another scheduler test was live (the race the candidate
+  removes by capturing consent at spawn plus consent_override in tests).
+  New docs/reference/updates.md plus README claims corrected in en, es,
+  zh-CN, ko, ja. Task record: ops/tasks/OPS-001B.md on the PR branch.
+  Retained notices: clippy --all-targets -p zeron-update fails with 5
+  unused_io_amount errors identical to base main; rustfmt --edition 2024
+  reports 25 diffs on crates/engine/src/lib.rs on both base and candidate
+  with no candidate-only diff; remote_terminals network-change lib test
+  flaky 4/5 on candidate and 4/5 on base. NOT RUN: UI evidence (headless),
+  full-workspace suites. Nothing integrated: A-authored R2 awaits B/Sol
+  review of exactly a17e1148.
+- Next action (next scheduled run): worker B/Sol review of PR #19 head
+  a17e1148; on approval integrate under the integration lock and re-verify
+  the combined tree. Owner decision open for OPS-001B: whether a managed
+  Linux install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh
+  (default stays local; both switches documented). Also outstanding: B's
+  independent reviews of A's PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13)
+  — nothing A-authored integrates without them.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
