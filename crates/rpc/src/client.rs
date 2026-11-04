@@ -288,6 +288,9 @@ impl RpcClient {
 
 impl Drop for RpcClient {
     fn drop(&mut self) {
+        // Subscriptions retain Shared; aborting the reader alone leaves its
+        // pending senders alive and subscribers waiting forever.
+        self.shared.lock().clear();
         self.reader.abort();
     }
 }
