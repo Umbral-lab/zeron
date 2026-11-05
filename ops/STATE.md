@@ -267,13 +267,39 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   flaky 4/5 on candidate and 4/5 on base. NOT RUN: UI evidence (headless),
   full-workspace suites. Nothing integrated: A-authored R2 awaits B/Sol
   review of exactly a17e1148.
-- Next action (next scheduled run): worker B/Sol review of PR #19 head
-  a17e1148; on approval integrate under the integration lock and re-verify
-  the combined tree. Owner decision open for OPS-001B: whether a managed
-  Linux install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh
-  (default stays local; both switches documented). Also outstanding: B's
-  independent reviews of A's PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13)
-  — nothing A-authored integrates without them.
+- Nightly run 2026-11-05 (A guard admitted OK_LATE_GRACE 00:01:28Z, deadline
+  04:00Z, receipt run-2026-11-05, integration lease pr21.json): B's REMOTE-001
+  transport PR #21 independently reviewed by A at exact head
+  2d05a2bc7c388b91169dd61f6dff0a7d4b58d6e0 (base d5ac5ae3) and integrated as
+  merge ef3e2435; merged tree byte-identical to the reviewed head; main now
+  fff91f44. A-host evidence: rpc package 29 lib + 13 integration + 1 pass, 0
+  fail, 2 ignored; independent RED of the RpcClient drop regression on a
+  throwaway worktree of d5ac5ae3 (Elapsed failure without the Shared.clear
+  fix); zeron-client --lib 35/35 at head; clippy --all-targets exit 0 with
+  warnings only in baseline byte-unchanged files (matches B's inventory);
+  rustfmt and git diff --check clean; no Cargo.lock change; merged-tree rpc
+  suite re-run pass on main. Review record ops/mailboxes/worker-a/reviews/
+  REVIEW-PR21.md; findings F-A21-1 (example token-file label misleading),
+  F-A21-2 (UserKnownHostsFile quoting/list-split notice), F-A21-3 (revoked
+  key does not kill established sessions; inherited semantics). PR #21 shows
+  merged on GitHub; issue #20 updated with the integration contract status.
+  NOT RUN on A's host: B's ignored real-OpenSSH sshd fixture test —
+  openssh-server not installed here (one-package owner ask: openssh-server);
+  B's real-sshd workflow remains B-host evidence until re-run. UI evidence
+  NOT RUN (headless; no UI touched). No non-test caller of connect_ssh exists
+  yet, so the merge changes no product behavior.
+- Next action (next scheduled run): A-owned CLI/enrollment slice on its own
+  branch using the integrated zeron_rpc::ssh API (explicit connect/status/
+  disconnect, offline/uncertain outcomes, no per-project-authorization claims
+  before server grants; carry F-A21-1/F-A21-2), then B review of that slice.
+  Still pending: worker B/Sol review of PR #19 head a17e1148; on approval
+  integrate under the integration lock and re-verify the combined tree.
+  Owner decision open for OPS-001B: whether a managed Linux install should
+  set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default stays local; both
+  switches documented). Also outstanding: B's independent reviews of A's PRs
+  #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates
+  without them. A-host re-verification of B's real-sshd test unlocks once the
+  owner installs openssh-server.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
