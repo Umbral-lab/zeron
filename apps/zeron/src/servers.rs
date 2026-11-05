@@ -41,6 +41,8 @@ pub enum ServerCommand {
     Sessions { name: String },
     /// Maintain a live session monitor. Ctrl-C or removing the enrollment disconnects.
     Connect { name: String },
+    /// Disconnect live monitors without forgetting the server or deleting keys.
+    Disconnect { name: String },
     /// Remove local enrollment and disconnect live monitors; does not delete SSH keys.
     Remove { name: String },
 }
@@ -138,19 +140,53 @@ impl Registry {
     }
 
     fn save_new(&self, name: &str, value: &Value) -> anyhow::Result<()> {
+        let _lock = self.lock()?;
+        self.write_record(name, value, false)
+    }
+
+    fn lock(&self) -> anyhow::Result<fs::File> {
         self.ensure_dir()?;
+        let mut options = fs::OpenOptions::new();
+        options.read(true).write(true).create(true).truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+        }
+        let lock = options.open(self.root.join(".registry.lock"))?;
+        lock.lock()?;
+        Ok(lock)
+    }
+
+    // Every writer holds the same OS lock: disconnect cannot resurrect a
+    // removed enrollment or overwrite a concurrently re-enrolled identity.
+    fn write_record(&self, name: &str, value: &Value, replace: bool) -> anyhow::Result<()> {
         let mut file = tempfile::NamedTempFile::new_in(&self.root)?;
         serde_json::to_writer_pretty(&mut file, value)?;
         file.write_all(b"\n")?;
         file.as_file().sync_all()?;
-        file.persist_noclobber(self.path(name)?).map_err(|e| {
-            anyhow::anyhow!(
-                "server {name:?} already exists or cannot be saved: {}",
-                e.error
-            )
-        })?;
-        self.sync_dir()?;
-        Ok(())
+        let target = self.path(name)?;
+        let saved = if replace {
+            file.persist(target)
+        } else {
+            file.persist_noclobber(target)
+        };
+        saved.map_err(|e| anyhow::anyhow!("server {name:?} cannot be saved: {}", e.error))?;
+        self.sync_dir()
+    }
+
+    fn disconnect(&self, name: &str) -> anyhow::Result<()> {
+        let _lock = self.lock()?;
+        let mut record = self.load(name)?;
+        record["enrollmentId"] = json!(zeron_rpc::ipc_auth::generate_token()?);
+        self.write_record(name, &record, true)
+    }
+
+    fn remove(&self, name: &str) -> anyhow::Result<()> {
+        let path = self.path(name)?;
+        let _lock = self.lock()?;
+        fs::remove_file(path).with_context(|| format!("cannot remove server {name:?}"))?;
+        self.sync_dir()
     }
 
     fn sync_dir(&self) -> anyhow::Result<()> {
@@ -272,9 +308,23 @@ fn now_ms() -> anyhow::Result<u64> {
 }
 
 fn print(value: &Value) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string(value)?);
+    println!("{}", terminal_safe(&serde_json::to_string(value)?));
     std::io::stdout().flush()?;
     Ok(())
+}
+
+fn terminal_safe(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    for c in text.chars() {
+        if c.is_control()
+            || matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        {
+            result.push_str(&format!("\\u{:04x}", c as u32));
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
 
 async fn remote_info(connection: &SshConnection) -> anyhow::Result<Value> {
@@ -314,6 +364,12 @@ async fn verified(record: &Value) -> anyhow::Result<(SshConnection, Value)> {
 }
 
 pub async fn run(command: ServerCommand, data_dir: &Path) -> anyhow::Result<()> {
+    run_inner(command, data_dir)
+        .await
+        .map_err(|error| anyhow::anyhow!(terminal_safe(&format!("{error:#}"))))
+}
+
+async fn run_inner(command: ServerCommand, data_dir: &Path) -> anyhow::Result<()> {
     let registry = Registry::new(data_dir);
     match command {
         ServerCommand::Add {
@@ -353,11 +409,12 @@ pub async fn run(command: ServerCommand, data_dir: &Path) -> anyhow::Result<()> 
         }
         ServerCommand::List => print(&json!(registry.list()?)),
         ServerCommand::Remove { name } => {
-            registry.ensure_dir()?;
-            fs::remove_file(registry.path(&name)?)
-                .with_context(|| format!("cannot remove server {name:?}"))?;
-            registry.sync_dir()?;
+            registry.remove(&name)?;
             print(&json!({"status":"removed", "name":name}))
+        }
+        ServerCommand::Disconnect { name } => {
+            registry.disconnect(&name)?;
+            print(&json!({"status":"disconnectRequested", "name":name}))
         }
         ServerCommand::Status { name } => {
             let (connection, info) = verified(&registry.load(&name)?).await?;
@@ -433,6 +490,15 @@ async fn monitor(registry: &Registry, name: &str) -> anyhow::Result<()> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn remote_terminal_controls_are_escaped_without_changing_json_values() {
+        let data = json!({"remote":"\u{009b}31m\u{202e}file\u{001b}]52;c;payload"});
+        let output = terminal_safe(&serde_json::to_string(&data).unwrap());
+        assert!(!output.contains(['\u{009b}', '\u{202e}', '\u{001b}']));
+        assert_eq!(serde_json::from_str::<Value>(&output).unwrap(), data);
+        assert!(!terminal_safe("SSH banner: \u{001b}]52;c;payload").contains('\u{001b}'));
+    }
+
     fn record(name: &str) -> Value {
         json!({"formatVersion":1,"name":name,"enrollmentId":"fixture-enrollment",
             "host":"user@owned", "sshPort":22,"ipcPort":27654,
@@ -475,6 +541,50 @@ mod tests {
         }
         for name in ["prod", "build-1", "server.eu", "my_server"] {
             assert!(registry.path(name).is_ok());
+        }
+    }
+
+    #[test]
+    fn disconnect_preserves_trust_and_credentials_and_cannot_resurrect_removal() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = Registry::new(dir.path());
+        let original = record("prod");
+        registry.save_new("prod", &original).unwrap();
+        registry.disconnect("prod").unwrap();
+        let mut disconnected = registry.load("prod").unwrap();
+        assert_ne!(disconnected["enrollmentId"], original["enrollmentId"]);
+        disconnected["enrollmentId"] = original["enrollmentId"].clone();
+        assert_eq!(disconnected, original);
+        registry.remove("prod").unwrap();
+        assert!(registry.disconnect("prod").is_err());
+        assert!(registry.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn concurrent_disconnect_cannot_restore_an_old_engine_identity() {
+        use std::sync::{Arc, Barrier};
+        let dir = tempfile::tempdir().unwrap();
+        let registry = Registry::new(dir.path());
+        for _ in 0..20 {
+            registry.save_new("prod", &record("prod")).unwrap();
+            let barrier = Arc::new(Barrier::new(2));
+            let start = barrier.clone();
+            let root = dir.path().to_owned();
+            let disconnect = std::thread::spawn(move || {
+                start.wait();
+                let _ = Registry::new(&root).disconnect("prod");
+            });
+            barrier.wait();
+            registry.remove("prod").unwrap();
+            let mut replacement = record("prod");
+            replacement["engineIdentity"]["deviceId"] = json!("new-engine");
+            registry.save_new("prod", &replacement).unwrap();
+            disconnect.join().unwrap();
+            assert_eq!(
+                registry.load("prod").unwrap()["engineIdentity"]["deviceId"],
+                "new-engine"
+            );
+            registry.remove("prod").unwrap();
         }
     }
 

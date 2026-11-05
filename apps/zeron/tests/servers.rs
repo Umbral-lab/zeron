@@ -51,7 +51,15 @@ fn commands_are_in_the_app_and_invalid_names_cannot_escape_storage() {
     let help = cli(root.path(), &["--help"]);
     assert!(help.status.success());
     let help = String::from_utf8(help.stdout).unwrap();
-    for command in ["add", "list", "status", "sessions", "connect", "remove"] {
+    for command in [
+        "add",
+        "list",
+        "status",
+        "sessions",
+        "connect",
+        "disconnect",
+        "remove",
+    ] {
         assert!(help.contains(command), "missing command {command}");
     }
     assert!(!cli(root.path(), &["status", "../escape"]).status.success());
@@ -234,7 +242,6 @@ async fn real_engine_and_ssh_enrollment_status_monitor_revocation_and_offline() 
         .env("ZERON_DATA_DIR", root.join("remote-data"))
         .env("ZERON_IPC_PORT", ipc_port.to_string())
         .env("ZERON_EDGE_URL", "http://127.0.0.1:9")
-        .env("ZERON_WORKOS_CLIENT_ID", "")
         .env("ZERON_HARNESS", "mock")
         .env("ZERON_AUTO_UPDATE", "0")
         .env("RUST_LOG", "warn")
@@ -331,6 +338,29 @@ async fn real_engine_and_ssh_enrollment_status_monitor_revocation_and_offline() 
         disconnected |= serde_json::from_str::<Value>(&line).unwrap()["status"] == "disconnected";
     }
     assert!(disconnected);
+
+    let (mut connected, mut lines) = monitor(root).await;
+    assert_eq!(
+        success(cli(root, &["disconnect", "prod"]))["status"],
+        "disconnectRequested"
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(5), connected.wait())
+            .await
+            .unwrap()
+            .unwrap()
+            .success()
+    );
+    let mut saw_disconnect = false;
+    while let Some(line) = lines.next_line().await.unwrap() {
+        saw_disconnect |= serde_json::from_str::<Value>(&line).unwrap()["status"] == "disconnected";
+    }
+    assert!(saw_disconnect);
+    assert_eq!(
+        success(cli(root, &["list"]))[0]["name"],
+        "prod",
+        "disconnect must retain enrollment"
+    );
 
     let (mut connected, mut lines) = monitor(root).await;
     assert_eq!(success(cli(root, &["remove", "prod"]))["status"], "removed");
