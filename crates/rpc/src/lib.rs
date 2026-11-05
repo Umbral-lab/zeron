@@ -22,6 +22,7 @@ mod client;
 pub mod device_room;
 pub mod ipc_auth;
 mod server;
+pub mod ssh;
 mod ws;
 
 pub use client::{RpcClient, RpcSubscription, connect_ipc, connect_ws};
