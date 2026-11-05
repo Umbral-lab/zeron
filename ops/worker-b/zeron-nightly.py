@@ -102,6 +102,54 @@ def quota_check(ledger, sample):
         raise RuntimeError(ledger['blocked'])
 
 
+def reconcile_reserve_block(record, sample, now):
+    """Under worker-b.lock, clear only a reserve block proven recovered by live usage.
+
+    This is not a quota override: UNKNOWN, auth/payment failures and the
+    current run's consumption/call counters remain blocking.
+    """
+    import math
+    block_path = STATE / 'route-block.json'
+    if not block_path.exists():
+        return False
+    block = json.loads(block_path.read_text())
+    if block.get('reason') != 'Quota reserve reached' or not isinstance(sample, dict):
+        return False
+    try:
+        if sample.get('source') != 'usage_api':
+            return False
+        fetched = datetime.fromisoformat(sample['fetched_at'])
+        if fetched.tzinfo is None or not 0 <= (now - fetched).total_seconds() <= 300:
+            return False
+        windows = sample['windows']
+        labels = [w['label'].strip().lower() for w in windows]
+        if not {'session', 'weekly'}.issubset(labels) or len(set(labels)) != len(labels):
+            return False
+        for item in windows:
+            used = float(item['used_percent'])
+            reset = datetime.fromisoformat(item['resets_at'])
+            if (isinstance(item['used_percent'], bool) or not math.isfinite(used)
+                    or not 0 <= used < 70 or reset.tzinfo is None or reset <= now):
+                return False
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False
+    probe = json.loads(json.dumps(record))
+    if probe.get('blocked') == 'Quota reserve reached':
+        probe.pop('blocked')
+    try:
+        quota_check(probe, sample)
+    except RuntimeError:
+        return False
+    archive = STATE / ('route-block.recovered.' + now.strftime('%Y%m%dT%H%M%S%f') + '.json')
+    save(archive, {'previous_block': block, 'reconciled_at': now.isoformat(), 'usage': sample})
+    os.chmod(archive, 0o600)
+    block_path.unlink()
+    record.update(probe)
+    record.pop('blocked', None)
+    record['route_block_reconciled_at'] = now.isoformat()
+    return True
+
+
 def reserve(path, model, requested_output, sample):
     with path.with_suffix('.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -309,7 +357,11 @@ def resume_allowed(record, now):
     local = now.astimezone(ZONE)
     _, _, end = window(now)
     return (local.hour >= 1 and now.astimezone(timezone.utc) < end
-            and record.get('state') == 'preflight_failed'
+            and (record.get('state') == 'preflight_failed'
+                 or (record.get('state') == 'blocked'
+                     and record.get('route_block_reconciled_at')
+                     and not record.get('blocked')
+                     and record.get('date') == local.date().isoformat()))
             and record.get('requests', 0) == 0 and record.get('reserved_generated', 0) == 0
             and not record.get('model_started_at') and not record.get('owner_resume_count')
             and record.get('preflight_attempts', 0) < 2)
@@ -397,6 +449,8 @@ def launch(owner_resume=False, quota_override=False):
         receipt = STATE / (date + '.json')
         if receipt.exists():
             record = json.loads(receipt.read_text())
+            if owner_resume and record.get('state') == 'blocked':
+                reconcile_reserve_block(record, quota(), datetime.now(timezone.utc))
             if quota_override:
                 if not quota_resume_allowed(record, now):
                     raise RuntimeError('This one-night quota override cannot admit this record')
@@ -428,9 +482,12 @@ def launch(owner_resume=False, quota_override=False):
         save(result_packet, {'status': 'partial', 'handoff_status': 'pending',
                              'reason': 'Repository preflight in progress; no inference dispatched', 'report': ''})
         if (STATE / 'route-block.json').exists():
+            reconcile_reserve_block(record, quota(), datetime.now(timezone.utc))
+        if (STATE / 'route-block.json').exists():
             block = json.loads((STATE / 'route-block.json').read_text())
             if block.get('reason') != 'Quota reserve reached' or not quota_override_active(record, now):
                 record['state'] = 'blocked'
+                record['blocked'] = block.get('reason', 'Unknown route block')
                 save(receipt, record)
                 print('BLOCKED: route parked pending operator reconciliation')
                 return 1

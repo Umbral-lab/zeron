@@ -94,15 +94,17 @@ class PreflightTests(unittest.TestCase):
         fetch.assert_not_called()
 
     def test_quota_block_is_checkpointed_and_not_dispatched(self):
+        when = datetime(2026, 11, 2, 1, 0, tzinfo=m.ZONE)
         sample = {'windows': [{'label': 'Weekly', 'used_percent': 77, 'resets_at': 'fixture'}]}
         def ready(receipt, record):
             record.update(source='a' * 40, state='admitted')
             m.save(receipt, record)
             return record['source']
-        with patch.object(m, 'datetime') as clock, patch.object(m, 'fetch_source', side_effect=ready), \
+        with patch.object(m, 'datetime') as clock, patch.object(m.time, 'time', return_value=when.timestamp()), \
+             patch.object(m, 'fetch_source', side_effect=ready), \
              patch.object(m, 'quota', return_value=sample), patch.object(m, 'notify_preflight_failure') as notice, \
              patch.object(m, 'supervise') as model:
-            clock.now.return_value = datetime(2026, 11, 2, 1, 0, tzinfo=m.ZONE)
+            clock.now.return_value = when
             self.assertEqual(m.launch(), 1)
         record = json.loads((self.root / '2026-11-02.json').read_text())
         packet = json.loads((self.root / '2026-11-02-result.json').read_text())
