@@ -4,6 +4,7 @@
 
 pub mod background;
 pub mod paths;
+pub mod servers;
 
 /// Production edge (Cloudflare Worker + Durable Objects on the zeron.sh zone).
 /// `ZERON_EDGE_URL` overrides (local dev / self-hosting).
