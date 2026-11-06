@@ -172,6 +172,10 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
   as unlimited). ops/policy.json import-locked; this line is the record.
   Terra/Sol: NOT VERIFIED from A's host (B-host concern).
+- Nightly usage 2026-11-06: Qwen self-hosted route only (one agent session +
+  bounded deterministic build/test probes; provider does not report totals —
+  quota UNKNOWN, never treated as unlimited). No Terra/Sol/GPT use, no
+  provider error retries, no new schedules; B ran its own jobs on B's host.
 - Credential handling (unchanged notices): GitHub App helper verified; repo
   identity david-noether[bot]; every remote write this run used the explicit
   bot credential helper; a global credential.helper store still exists and
@@ -288,18 +292,48 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   B's real-sshd workflow remains B-host evidence until re-run. UI evidence
   NOT RUN (headless; no UI touched). No non-test caller of connect_ssh exists
   yet, so the merge changes no product behavior.
-- Next action (next scheduled run): A-owned CLI/enrollment slice on its own
-  branch using the integrated zeron_rpc::ssh API (explicit connect/status/
-  disconnect, offline/uncertain outcomes, no per-project-authorization claims
-  before server grants; carry F-A21-1/F-A21-2), then B review of that slice.
-  Still pending: worker B/Sol review of PR #19 head a17e1148; on approval
-  integrate under the integration lock and re-verify the combined tree.
-  Owner decision open for OPS-001B: whether a managed Linux install should
-  set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default stays local; both
-  switches documented). Also outstanding: B's independent reviews of A's PRs
-  #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates
-  without them. A-host re-verification of B's real-sshd test unlocks once the
-  owner installs openssh-server.
+- Nightly run 2026-11-06 (A guard admitted OK_LATE_GRACE 00:01:30Z, deadline
+  04:00Z, receipt run-2026-11-06; integration lock held for both merges): two
+  B-authored PRs reviewed and integrated on A's host. PR #22 (quota-reserve
+  recovery, ops/worker-b) reviewed at exact head
+  75b9429c360fd57f13cb917af82338c6360ed0ec (base 2184e3e0), integrated as
+  merge 0ae10c5b: 41 offline tests ran at head (40 pass + 1 inherited httpx
+  test NOT RUN on this host), base-tree RED reproduction of the inherited
+  frozen-clock preflight failure (35 ran / 1 failure + 1 error at 2184e3e0),
+  single-removed-line diff audit confirming no cap/model/schedule edits,
+  merged ops/worker-b byte-identical to the reviewed head. PR #23 (real zeron
+  server commands for enrollment/sessions/revocation, R2, issue #20) reviewed
+  at exact head c33e2e5723bdad50c4793bd510931568af5e00f6 (base 2184e3e0),
+  integrated as merge d6f882fc: cargo test -p zeron --no-default-features
+  25 pass / 0 fail / 1 ignored at head; the desktop-feature build B asked A
+  to cover (zeron-ui compiled on A's host, servers + background_engine
+  targets) exit 0; clippy exit 0 with only B's four retained baseline
+  warnings; rustfmt/git-diff --check clean; empty Cargo.lock diff; A-side
+  headless CLI grounding (seven subcommands, offline list, escape-name
+  rejection, no ipc-token ever created); combined-tree re-run 25/0/1 plus
+  41-ran/40-pass python discovery; apps/zeron byte-identical to the reviewed
+  head. Review records: ops/mailboxes/worker-a/reviews/REVIEW-PR23.md plus
+  PR comments (ids 6673101789, 6673163248, review 5794045958) and issue
+  updates #4 (6673102182) and #20 (6673163248), all david-noether[bot].
+  main now d6f882fc, pushed and read back. NOT RUN on A's host: B's ignored
+  real-sshd workflow (openssh-server still absent — one-package owner ask
+  re-confirmed); rendered UI evidence (headless; build config changed, not UI
+  behavior). New notices F-A23-1 (list hard-fails on a corrupt record),
+  F-A23-2 (disconnect acts via 250 ms generation poll; revoked keys never
+  kill established sessions — inherited F-A21-3), F-A23-3 (canonical absolute
+  token paths require re-enrollment after a move).
+- Next action (next scheduled run): A-owned acceptance slice for issue #20
+  that the merged CLI does not yet cover — native enrollment/server-picker UI
+  and server-side per-project workspace-grants design (CLI and transport are
+  now integrated; do not duplicate them). Still pending: worker B/Sol review
+  of PR #19 head a17e1148; on approval integrate under the integration lock
+  and re-verify the combined tree. Owner decision open for OPS-001B: whether
+  a managed Linux install should set ZERON_UPDATE_CHECKS=1 in
+  edge/src/install.sh (default stays local; both switches documented). Also
+  outstanding: B's independent reviews of A's PRs #6 (c78e2601), #7
+  (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates without them.
+  A-host re-verification of B's real-sshd tests unlocks once the owner
+  installs openssh-server.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
