@@ -2,14 +2,16 @@
 //! local-only without credentials. `zeron login` and `zeron logout` select the
 //! profile used by the next engine start without mutating a live runtime.
 
-#![cfg_attr(windows, windows_subsystem = "windows")]
+#![cfg_attr(all(windows, feature = "desktop"), windows_subsystem = "windows")]
 
 mod auth_cli;
 mod daemon;
 mod update_cli;
 
 use clap::{Parser, Subcommand};
-use zeron_app::{edge_url_from_env, engine_config_from_env, paths, workos_client_id_from_env};
+#[cfg(feature = "desktop")]
+use zeron_app::workos_client_id_from_env;
+use zeron_app::{edge_url_from_env, engine_config_from_env, paths};
 
 #[derive(Parser)]
 #[command(
@@ -43,6 +45,11 @@ enum Command {
     Logout,
     /// Show workspace mode, optional auth, and engine status.
     Status,
+    /// Enroll and access your own engines directly over verified SSH.
+    Server {
+        #[command(subcommand)]
+        command: zeron_app::servers::ServerCommand,
+    },
     /// Live sync introspection from the running engine: per-room connection
     /// state, last pushed-frame/ack ages, rejoin/probe/resync counters.
     Sync,
@@ -51,7 +58,7 @@ enum Command {
     /// waiting) — the edge then keeps the machine awake.
     #[command(hide = true)]
     Quiesce,
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "desktop"))]
     /// Trigger an Appshot in the running headed instance (desktop shortcut fallback).
     Appshot,
     /// Serve the Zeron MCP (Model Context Protocol) server on stdin/stdout,
@@ -116,7 +123,7 @@ fn main() -> anyhow::Result<()> {
         zeron_app::init_logging(
             long_running,
             mode,
-            matches!(&cli.command, Some(Command::Mcp)),
+            matches!(&cli.command, Some(Command::Mcp | Command::Server { .. })),
         );
     }
     if long_running {
@@ -143,6 +150,10 @@ fn main() -> anyhow::Result<()> {
             let runtime = tokio::runtime::Runtime::new()?;
             runtime.block_on(auth_cli::status(engine_config_from_env()))
         }
+        Some(Command::Server { command }) => {
+            let runtime = tokio::runtime::Runtime::new()?;
+            runtime.block_on(zeron_app::servers::run(command, &paths::data_dir()))
+        }
         Some(Command::Sync) => {
             let runtime = tokio::runtime::Runtime::new()?;
             let config = engine_config_from_env();
@@ -155,7 +166,7 @@ fn main() -> anyhow::Result<()> {
         }
         Some(Command::Mcp) => zeron_app::run_mcp(),
         Some(Command::Engine) => zeron_app::background::run(),
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", feature = "desktop"))]
         Some(Command::Appshot) => {
             zeron_ui::appshots::request_running_appshot(&engine_config_from_env().data_dir)
                 .map_err(anyhow::Error::msg)
@@ -172,6 +183,7 @@ fn main() -> anyhow::Result<()> {
             DaemonCommand::Restart => daemon::restart(),
             DaemonCommand::Status => daemon::status(),
         },
+        #[cfg(feature = "desktop")]
         None => {
             let edge_token = std::env::var("ZERON_EDGE_TOKEN").ok();
             // Headed: the UI probes ZERON_IPC_PORT and connects to a running
@@ -191,6 +203,10 @@ fn main() -> anyhow::Result<()> {
             });
             Ok(())
         }
+        #[cfg(not(feature = "desktop"))]
+        None => anyhow::bail!(
+            "this build has no desktop UI; use `zeron headless` or `zeron server --help`"
+        ),
     }
 }
 

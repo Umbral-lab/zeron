@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = ["desktop"]
+desktop = ["dep:zeron-ui"]
+
 # Shared by both binaries; the UI is referenced only by `zeron`, so the
 # background engine links without it.
 [lib]
@@ -22,7 +26,7 @@ path = "src/bin/zeron-engine.rs"
 [dependencies]
 zeron-engine.workspace = true
 zeron-rpc.workspace = true
-zeron-ui.workspace = true
+zeron-ui = { workspace = true, optional = true }
 zeron-update.workspace = true
 zeron-mcp.workspace = true
 zeron-notify.workspace = true
@@ -31,6 +35,7 @@ clap.workspace = true
 anyhow.workspace = true
 libc.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
@@ -42,8 +47,6 @@ mimalloc.workspace = true
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
 
-[dev-dependencies]
-tempfile.workspace = true
 
 [build-dependencies]
 embed-resource = "3.0.11"
