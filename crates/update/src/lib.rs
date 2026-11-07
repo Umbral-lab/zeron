@@ -1040,6 +1040,21 @@ pub fn desktop_auto_update_enabled() -> bool {
         .unwrap_or(true)
 }
 
+/// `ZERON_UPDATE_CHECKS=1|true|yes` — consent for the background scheduler to
+/// poll the public release feed at startup and on the wall-clock schedule.
+/// Unset or off means no scheduled release egress: local by default (charter:
+/// zero unsolicited outbound connections). This gate is deliberately separate
+/// from `ZERON_AUTO_UPDATE`, which governs applying updates only — setting it
+/// must not authorize checking, and enabling checking must not authorize
+/// download or install. Explicit user actions (the CLI `zeron update`, the UI
+/// "Check for Updates…", `Updater::check`) are user-triggered requests and
+/// bypass this scheduler gate.
+pub fn background_update_checks_enabled() -> bool {
+    std::env::var("ZERON_UPDATE_CHECKS")
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+        .unwrap_or(false)
+}
+
 /// "Nothing would be interrupted by a restart right now" — wired by the engine
 /// to its live-run and open-terminal registries. `None` = no gate.
 pub type QuiescentCheck = Arc<dyn Fn() -> bool + Send + Sync>;
@@ -1054,16 +1069,22 @@ enum Role {
     Desktop,
 }
 
-/// Background release checker: polls `{edge}/releases` hourly on a wall-clock
-/// schedule (so sleep/wake cannot stretch it), backs off on failure, and
-/// publishes [`UpdateStatus`] over a watch channel. In the engine, managed
+/// Background release checker. Scheduled polls of `{edge}/releases` are a
+/// consent decision: they run only when `ZERON_UPDATE_CHECKS` grants them at
+/// spawn (default off = local, no unsolicited release egress), on a wall-clock
+/// schedule (so sleep/wake cannot stretch it), backing off on failure, and
+/// publishing [`UpdateStatus`] over a watch channel. In the engine, managed
 /// installs with `ZERON_AUTO_UPDATE` set stage + apply + service restart on
 /// their own — but only in a quiet window: while `quiescent` reports activity,
-/// the apply defers and re-probes every [`IDLE_RECHECK`].
+/// the apply defers and re-probes every [`IDLE_RECHECK`]. Explicit user
+/// actions (`check_now`, `check`) are user-triggered and consent-independent.
 #[derive(Clone)]
 pub struct Updater {
     edge_url: String,
     role: Arc<Role>,
+    /// Scheduled-check consent, read once when this runtime spawns so a later
+    /// environment change cannot flip a live loop mid-session.
+    background_consent: bool,
     status_tx: Arc<watch::Sender<UpdateStatus>>,
     /// Wakes the loop; `forced` says whether the wake demands a check or only
     /// a fresh look at the wall clock.
@@ -1091,16 +1112,32 @@ impl Updater {
     }
 
     fn spawn_role(edge_url: String, role: Role) -> Self {
-        let initial_delay = match role {
+        Self::spawn_role_with_delay(edge_url, role, None, None)
+    }
+
+    /// Test-visible spawn with two overrides: `initial_delay_override` shortens
+    /// the first check window and `consent_override` fixes scheduled-check
+    /// consent explicitly instead of reading the process environment (test
+    /// threads share it). Production callers use `spawn` / `spawn_desktop`,
+    /// which take the role defaults and the live `ZERON_UPDATE_CHECKS` value.
+    fn spawn_role_with_delay(
+        edge_url: String,
+        role: Role,
+        initial_delay_override: Option<Duration>,
+        consent_override: Option<bool>,
+    ) -> Self {
+        let initial_delay = initial_delay_override.unwrap_or(match role {
             Role::Engine { .. } => ENGINE_INITIAL_DELAY,
             Role::Desktop => DESKTOP_INITIAL_DELAY,
-        };
+        });
+        let background_consent = consent_override.unwrap_or_else(background_update_checks_enabled);
         let (status_tx, _) = watch::channel(UpdateStatus::initial());
         let (wake_tx, _) = watch::channel(0);
         let (shutdown_tx, _) = watch::channel(false);
         let updater = Self {
             edge_url,
             role: Arc::new(role),
+            background_consent,
             status_tx: Arc::new(status_tx),
             wake_tx: Arc::new(wake_tx),
             forced: Arc::new(AtomicBool::new(false)),
@@ -1201,9 +1238,18 @@ impl Updater {
                 }
                 let mut schedule = Schedule::default();
                 let mut superseded = SupersededRestart::default();
+                // Scheduled release egress is a consent decision, separate
+                // from apply consent (`ZERON_AUTO_UPDATE`): with
+                // `ZERON_UPDATE_CHECKS` unset/off, the loop never issues a
+                // scheduled `check_once()` — startup, wall-clock due times and
+                // auth-event wakes stay silent. Explicit `check_now()` wakes
+                // (the CLI, UI-initiated refresh) are user-triggered and still
+                // run. Download/install consent remains `ZERON_AUTO_UPDATE`.
+                let background_consent = self.background_consent;
                 loop {
                     let forced = self.forced.swap(false, Ordering::SeqCst);
-                    if forced || schedule.due(SystemTime::now()) {
+                    let scheduled = background_consent && schedule.due(SystemTime::now());
+                    if forced || scheduled {
                         let ok = self.check_once().await;
                         schedule.record(SystemTime::now(), ok);
                         if ok
@@ -1968,28 +2014,48 @@ mod tests {
 
     /// Serves `body` for every request until aborted.
     async fn serve_forever(body: Vec<u8>) -> (String, tokio::task::JoinHandle<()>) {
+        let (base, counter, server) = serve_forever_counting(body, None).await;
+        let _ = counter;
+        (base, server)
+    }
+
+    /// Same feed stand-in, optionally with a shared request counter so tests
+    /// can assert whether the checker contacted the feed at all.
+    async fn serve_forever_counting(
+        body: Vec<u8>,
+        counter: Option<Arc<std::sync::atomic::AtomicUsize>>,
+    ) -> (
+        String,
+        Arc<std::sync::atomic::AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
-        let server = tokio::spawn(async move {
-            loop {
-                let Ok((mut socket, _)) = listener.accept().await else {
-                    return;
-                };
-                let body = body.clone();
-                tokio::spawn(async move {
-                    let mut request = [0; 4096];
-                    let _ = socket.read(&mut request).await;
-                    let head = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        body.len()
-                    );
-                    let _ = socket.write_all(head.as_bytes()).await;
-                    let _ = socket.write_all(&body).await;
-                });
-            }
-        });
-        (base, server)
+        let counter = counter.unwrap_or_else(|| Arc::new(std::sync::atomic::AtomicUsize::new(0)));
+        let server = {
+            let counter = counter.clone();
+            tokio::spawn(async move {
+                loop {
+                    let Ok((mut socket, _)) = listener.accept().await else {
+                        return;
+                    };
+                    counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let body = body.clone();
+                    tokio::spawn(async move {
+                        let mut request = [0; 4096];
+                        let _ = socket.read(&mut request).await;
+                        let head = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = socket.write_all(head.as_bytes()).await;
+                        let _ = socket.write_all(&body).await;
+                    });
+                }
+            })
+        };
+        (base, counter, server)
     }
 
     #[tokio::test]
@@ -2003,6 +2069,133 @@ mod tests {
         assert!(status.checked_at.is_some());
         assert_eq!(*updater.watch().borrow(), status);
         updater.shutdown().await;
+        server.abort();
+    }
+
+    /// Serializes env-var mutation across the consent tests: the process
+    /// environment is shared by all test threads.
+    static CONSENT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn set_consent_env(value: Option<&str>) {
+        // Safety: CONSENT_ENV_LOCK serializes every mutation of these vars
+        // across the tests that assert env parsing. The consent-sensitive
+        // scheduler tests do not touch the environment at all — they fix
+        // consent with `consent_override`, so a parallel test thread cannot
+        // flip a live runtime mid-session.
+        let _guard = CONSENT_ENV_LOCK.lock().unwrap();
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var("ZERON_UPDATE_CHECKS", v),
+                None => std::env::remove_var("ZERON_UPDATE_CHECKS"),
+            }
+        }
+    }
+
+    #[test]
+    fn background_check_consent_defaults_local_and_is_separate_from_apply_consent() {
+        set_consent_env(None);
+        assert!(
+            !background_update_checks_enabled(),
+            "unset means local: no scheduled release egress"
+        );
+        set_consent_env(Some("0"));
+        assert!(!background_update_checks_enabled());
+        set_consent_env(Some("false"));
+        assert!(!background_update_checks_enabled());
+        set_consent_env(Some("1"));
+        assert!(background_update_checks_enabled());
+        set_consent_env(Some("true"));
+        assert!(background_update_checks_enabled());
+        // Apply consent (in either direction) never authorizes checking:
+        // ZERON_AUTO_UPDATE is read only at the apply stage of the loop.
+        unsafe { std::env::set_var("ZERON_AUTO_UPDATE", "1") };
+        set_consent_env(Some("0"));
+        assert!(!background_update_checks_enabled());
+        unsafe { std::env::remove_var("ZERON_AUTO_UPDATE") };
+        set_consent_env(None);
+    }
+
+    /// Counts requests the checker makes against a local stand-in feed.
+    fn counting_requests() -> Arc<std::sync::atomic::AtomicUsize> {
+        Arc::new(std::sync::atomic::AtomicUsize::new(0))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn consent_off_stays_local_at_startup_and_idle_but_explicit_checks_work() {
+        let requests = counting_requests();
+        let (base, _counter, server) = serve_forever_counting(
+            br#"{"version":"999.0.0","files":{}}"#.to_vec(),
+            Some(requests.clone()),
+        )
+        .await;
+        // Short initial delay: if the old unconditional schedule were active,
+        // a scheduled check would fire within this window. It must not.
+        // Consent is fixed explicitly here: the shared process environment
+        // cannot be trusted across parallel tests.
+        let updater = Updater::spawn_role_with_delay(
+            base.clone(),
+            Role::Engine { quiescent: None },
+            Some(Duration::from_millis(80)),
+            Some(false),
+        );
+        for _ in 0..10 {
+            updater.poke();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        assert_eq!(
+            requests.load(Ordering::SeqCst),
+            0,
+            "consent-off startup and idle must issue zero release requests"
+        );
+
+        // An explicit user action still proceeds without background consent
+        // (checking is its own decision, not bundled with install consent).
+        updater.check_now();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(
+            requests.load(Ordering::SeqCst) >= 1,
+            "an explicit check_now must proceed without background consent"
+        );
+
+        // Shutdown boundary: a replaced runtime keeps issuing nothing.
+        updater.shutdown().await;
+        let stopped_at = requests.load(Ordering::SeqCst);
+        updater.check_now();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(requests.load(Ordering::SeqCst), stopped_at);
+        server.abort();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn consent_on_polls_the_feed_without_any_explicit_call() {
+        let requests = counting_requests();
+        let (base, _counter, server) = serve_forever_counting(
+            br#"{"version":"999.0.0","files":{}}"#.to_vec(),
+            Some(requests.clone()),
+        )
+        .await;
+        // Consent granted explicitly (not via the shared process environment).
+        let updater = Updater::spawn_role_with_delay(
+            base.clone(),
+            Role::Engine { quiescent: None },
+            Some(Duration::from_millis(80)),
+            Some(true),
+        );
+        // No check_now, no poke: the scheduled startup check must run by itself
+        // once consent is granted.
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert!(
+            requests.load(Ordering::SeqCst) >= 1,
+            "consent-on startup must issue the scheduled release check"
+        );
+        updater.shutdown().await;
+        // The explicit awaited check (UI "Check for Updates…" path) works under
+        // either consent value — it is a user-triggered request.
+        let explicit = Updater::spawn_desktop(base.clone());
+        let status = explicit.check().await.unwrap();
+        assert!(status.update_available);
+        assert_eq!(status.latest_version.as_deref(), Some("999.0.0"));
+        explicit.shutdown().await;
         server.abort();
     }
 

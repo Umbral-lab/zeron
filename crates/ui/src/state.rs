@@ -611,7 +611,8 @@ async fn query_engine_info(client: &RpcClient) -> Result<EngineInfo, RpcError> {
 pub use zeron_proto::view::{
     ChatGroup, ConnectionStatus, GatePhase, Indicator, SESSION_STALE_MS, attention_rank,
     chat_location, display_status, effective_indicator, format_time_ago, gate_phase, group_chats,
-    parse_auth_state, project_label, running_subagents, sort_active, sort_chats, sort_spaces, sort_tabs,
+    parse_auth_state, project_label, running_subagents, sort_active, sort_chats, sort_spaces,
+    sort_tabs,
 };
 
 /// What a session row shows that ticks with the clock rather than with its
@@ -2198,7 +2199,12 @@ impl AppState {
             .iter()
             .rev()
             .find(|entry| entry.role == user)
-            .or_else(|| self.transcript.iter().rev().find(|entry| entry.role == user))?;
+            .or_else(|| {
+                self.transcript
+                    .iter()
+                    .rev()
+                    .find(|entry| entry.role == user)
+            })?;
         let setup_id = zeron_proto::cloud_setup_entry_id(&message.id);
         let setup = self
             .pending_echoes()
@@ -2874,9 +2880,10 @@ impl AppState {
 
     pub fn cloud_enabled(&self) -> bool {
         self.cloud_offered()
-            && (self.cloud_status
-            .as_ref()
-            .is_some_and(crate::cloud::account_enabled)
+            && (self
+                .cloud_status
+                .as_ref()
+                .is_some_and(crate::cloud::account_enabled)
                 || self.cloud_account_device().is_some())
     }
 
@@ -6527,13 +6534,21 @@ mod tests {
         // session row says Working yet.
         s.apply_transcript(vec![
             entry("m1", user, None),
-            entry("m1.cloud-setup", assistant, Some(zeron_doc::MessageStatus::Streaming)),
+            entry(
+                "m1.cloud-setup",
+                assistant,
+                Some(zeron_doc::MessageStatus::Streaming),
+            ),
         ]);
         assert_eq!(s.indicator_for("c", now), Indicator::Working);
         // Finished: the session row speaks for itself again.
         s.apply_transcript(vec![
             entry("m1", user, None),
-            entry("m1.cloud-setup", assistant, Some(zeron_doc::MessageStatus::Complete)),
+            entry(
+                "m1.cloud-setup",
+                assistant,
+                Some(zeron_doc::MessageStatus::Complete),
+            ),
         ]);
         assert_ne!(s.indicator_for("c", now), Indicator::Working);
     }
@@ -6623,7 +6638,11 @@ mod tests {
         s.settle_failed_cloud_setups();
         assert_eq!(
             step(&s),
-            ("Couldn't start a machine".into(), true, Some("No room".into()))
+            (
+                "Couldn't start a machine".into(),
+                true,
+                Some("No room".into())
+            )
         );
         assert_eq!(
             s.pending_echoes()[0].status,

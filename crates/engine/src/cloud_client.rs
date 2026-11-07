@@ -1156,7 +1156,6 @@ impl Target {
     }
 }
 
-
 fn available_vault(status: VaultStatus) -> VaultStatus {
     VaultStatus {
         available: true,
@@ -1396,7 +1395,9 @@ mod tests {
                 serde_json::json!({"chatId": "chat-1", "deviceId": "cloud-s1",
                     "spaceId": "sp-1", "state": "deleting", "createdAt": 3}),
             ),
-            ("DELETE", "/cloud/org_1") => (200, serde_json::json!({"state": "off", "available": true})),
+            ("DELETE", "/cloud/org_1") => {
+                (200, serde_json::json!({"state": "off", "available": true}))
+            }
             ("GET", "/cloud/org_1/usage?from=2026-09-29&to=2026-09-30") => (
                 200,
                 serde_json::json!({

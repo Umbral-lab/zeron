@@ -132,9 +132,11 @@ fn rig_with(gated: Option<HarnessId>, codex_failures: usize) -> Rig {
             name,
             seen: seen.clone(),
             gate: (gated == Some(id)).then(|| gate.clone()),
-            failures: Arc::new(std::sync::atomic::AtomicUsize::new(
-                if id == CODEX { codex_failures } else { 0 },
-            )),
+            failures: Arc::new(std::sync::atomic::AtomicUsize::new(if id == CODEX {
+                codex_failures
+            } else {
+                0
+            })),
         }));
     }
     let core = EngineCore::assemble(dir.path(), Arc::new(registry), CLAUDE, None).unwrap();
@@ -362,10 +364,18 @@ async fn switching_provider_drops_the_foreign_resume_id_and_replays_the_history_
     let back = rig.turn(CLAUDE, "one more thing", "u5").await;
     assert_eq!(back.resume.as_deref(), Some("claude-session"));
     for needle in ["What fruit did I mention?", "Codex answer", "thanks"] {
-        assert!(back.prompt.contains(needle), "missing {needle:?}: {}", back.prompt);
+        assert!(
+            back.prompt.contains(needle),
+            "missing {needle:?}: {}",
+            back.prompt
+        );
     }
     for seen in ["PINEAPPLE", "MANGO", "Claude answer"] {
-        assert!(!back.prompt.contains(seen), "replayed {seen:?}: {}", back.prompt);
+        assert!(
+            !back.prompt.contains(seen),
+            "replayed {seen:?}: {}",
+            back.prompt
+        );
     }
     assert!(back.prompt.ends_with("one more thing"), "{}", back.prompt);
     assert_eq!(rig.seams().len(), 2);
@@ -382,7 +392,11 @@ async fn switching_provider_drops_the_foreign_resume_id_and_replays_the_history_
     assert_eq!(codex.resume.as_deref(), Some("codex-session"));
     assert!(codex.prompt.contains("one more thing"), "{}", codex.prompt);
     assert!(codex.prompt.contains("and done"), "{}", codex.prompt);
-    assert!(!codex.prompt.contains("What fruit did I mention?"), "{}", codex.prompt);
+    assert!(
+        !codex.prompt.contains("What fruit did I mention?"),
+        "{}",
+        codex.prompt
+    );
     assert_eq!(rig.seams().len(), 3);
 }
 
@@ -400,9 +414,17 @@ async fn a_switch_back_replays_the_message_that_triggered_the_first_switch() {
     let back = rig.sent_turn(CLAUDE, "and now?", "u3").await;
     assert_eq!(back.resume.as_deref(), Some("claude-session"));
     for needle in ["Which fruit was it?", "Codex answer"] {
-        assert!(back.prompt.contains(needle), "missing {needle:?}: {}", back.prompt);
+        assert!(
+            back.prompt.contains(needle),
+            "missing {needle:?}: {}",
+            back.prompt
+        );
     }
-    assert!(!back.prompt.contains("PINEAPPLE"), "Claude already saw it: {}", back.prompt);
+    assert!(
+        !back.prompt.contains("PINEAPPLE"),
+        "Claude already saw it: {}",
+        back.prompt
+    );
 
     // Each seam sits directly above the message that triggered it.
     let entries = rig.entries();
@@ -693,7 +715,11 @@ async fn returning_after_a_failed_switch_resumes_the_owner_without_replaying_its
     );
     // The message Codex never answered is all Claude missed.
     assert!(back.prompt.contains("What fruit?"), "{}", back.prompt);
-    assert!(back.prompt.ends_with("Which fruit was it?"), "{}", back.prompt);
+    assert!(
+        back.prompt.ends_with("Which fruit was it?"),
+        "{}",
+        back.prompt
+    );
 }
 
 #[tokio::test]
@@ -756,7 +782,11 @@ async fn a_switched_side_chat_counts_only_its_own_seams() {
             .unwrap();
     }
     rig.turn(CLAUDE, "hello", "u1").await;
-    assert_eq!(rig.seams().len(), 1, "no seam for the side chat's first run");
+    assert_eq!(
+        rig.seams().len(),
+        1,
+        "no seam for the side chat's first run"
+    );
     rig.turn(CODEX, "over to you", "u2").await;
     assert_eq!(rig.seams().len(), 2, "the side chat's own switch is marked");
 }

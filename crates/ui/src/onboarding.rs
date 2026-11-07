@@ -210,7 +210,11 @@ impl Onboarding {
         let observe_state = cx.observe(&state, |this, state, cx| {
             if this.awaiting_sign_in && state.read(cx).signed_in() {
                 this.awaiting_sign_in = false;
-                let next = if this.github_in_flow(cx) { Step::Github } else { Step::Providers };
+                let next = if this.github_in_flow(cx) {
+                    Step::Github
+                } else {
+                    Step::Providers
+                };
                 this.go(next, cx);
             }
             // The edge answered that this account has no Cloud while on its

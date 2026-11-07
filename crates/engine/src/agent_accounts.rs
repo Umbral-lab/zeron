@@ -2641,7 +2641,10 @@ impl AgentAccounts {
                 let _ = std::fs::remove_dir_all(&home);
             }
             Some(LoginFlow::Task {
-                handle, home, harness, ..
+                handle,
+                home,
+                harness,
+                ..
             }) => {
                 tracing::info!(%login_id, ?harness, "agent sign-in cancelled");
                 handle.abort();

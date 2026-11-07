@@ -1,10 +1,10 @@
+#[cfg(target_os = "linux")]
+#[path = "browser-fixture/linux.rs"]
+mod linux;
 #[path = "browser-fixture/storage.rs"]
 mod storage;
 #[path = "browser-fixture/transcript_links.rs"]
 mod transcript_links;
-#[cfg(target_os = "linux")]
-#[path = "browser-fixture/linux.rs"]
-mod linux;
 // Real shell + native WebKit smoke test and screenshot fixture. Synthetic
 // chat data, isolated temp storage, loopback-only website, no engine services.
 use gpui::{AppContext, AsyncApp, Bounds, WindowBounds, WindowOptions, px, size};
@@ -161,9 +161,11 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&output)?;
     let temp = tempfile::tempdir()?;
     let data = std::env::var_os("ZERON_BROWSER_STORAGE_ROOT")
-        .map(PathBuf::from).unwrap_or_else(|| temp.path().to_path_buf());
+        .map(PathBuf::from)
+        .unwrap_or_else(|| temp.path().to_path_buf());
     let storage_root = data.clone();
-    let storage_profile = std::env::var("ZERON_BROWSER_STORAGE_PROFILE").unwrap_or_else(|_| "local".into());
+    let storage_profile =
+        std::env::var("ZERON_BROWSER_STORAGE_PROFILE").unwrap_or_else(|_| "local".into());
     let storage_url = std::env::var("ZERON_BROWSER_STORAGE_URL").ok();
     let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
     let _origin = format!("http://{}", listener.local_addr()?);
@@ -175,7 +177,8 @@ fn main() -> anyhow::Result<()> {
             let request = String::from_utf8_lossy(&request[..n]);
             // The bench's video, from `ZERON_BROWSER_BENCH_VIDEO`.
             if request.starts_with("GET /bench.mp4 ")
-                && let Some(video) = std::env::var_os("ZERON_BROWSER_BENCH_VIDEO").and_then(|path| std::fs::read(path).ok())
+                && let Some(video) = std::env::var_os("ZERON_BROWSER_BENCH_VIDEO")
+                    .and_then(|path| std::fs::read(path).ok())
             {
                 let _ = write!(
                     stream,

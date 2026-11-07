@@ -57,7 +57,10 @@ fn methods(id: HarnessId, platform: Platform) -> Vec<Method> {
         Fx => vec![Shell("curl -fsSL https://fx.sh/setup.sh | bash", "bash")],
         Antigravity => vec![Archive],
         Muse if windows => vec![PowerShell("irm https://dev.meta.ai/install.ps1 | iex")],
-        Muse => vec![Shell("curl -fsSL https://dev.meta.ai/install.sh | sh", "sh")],
+        Muse => vec![Shell(
+            "curl -fsSL https://dev.meta.ai/install.sh | sh",
+            "sh",
+        )],
         ClaudeCode if windows => vec![PowerShell("irm https://claude.ai/install.ps1 | iex")],
         ClaudeCode => vec![Shell(
             "curl -fsSL https://claude.ai/install.sh | bash",

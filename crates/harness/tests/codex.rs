@@ -735,7 +735,10 @@ async fn auto_accept_edits_applies_file_changes_and_asks_before_the_rest() {
     let asked = asked.lock().unwrap();
     let headers: Vec<&str> = asked.iter().map(|q| q.header.as_str()).collect();
     assert_eq!(headers, ["Approve command", "Approve permissions"]);
-    assert_eq!(asked[0].question, "Codex wants to run `git push`. Allow it?");
+    assert_eq!(
+        asked[0].question,
+        "Codex wants to run `git push`. Allow it?"
+    );
 }
 
 #[tokio::test]
