@@ -172,6 +172,10 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
   as unlimited). ops/policy.json import-locked; this line is the record.
   Terra/Sol: NOT VERIFIED from A's host (B-host concern).
+- Nightly usage 2026-11-06: Qwen self-hosted route only (one agent session +
+  bounded deterministic build/test probes; provider does not report totals —
+  quota UNKNOWN, never treated as unlimited). No Terra/Sol/GPT use, no
+  provider error retries, no new schedules; B ran its own jobs on B's host.
 - Credential handling (unchanged notices): GitHub App helper verified; repo
   identity david-noether[bot]; every remote write this run used the explicit
   bot credential helper; a global credential.helper store still exists and
@@ -233,15 +237,103 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   dates. Issue #9 closed on integration. PRs #14/#16/#17/#18 show merged on
   GitHub; branch-protection API still 403 for the App (NOT VERIFIED,
   operator item).
-- Next action (next scheduled run): primary A task is OPS-001B (release-check
-  consent boundary) — B's pinned audit records docs/audits/2026-10-31-worker-b.md
-  and 2026-11-01-worker-b.md now give a source-grounded finding and a five-step
-  acceptance plan; the inherited local_first test expectation makes this an R2
-  product decision needing owner visibility plus B/Sol review before any
-  integration. Also outstanding: B's independent reviews of A's PRs #6
-  (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates
-  without them; check B's 2026-11-02 wake against main 83803685. Integrate
-  approved A candidates only after B/Sol review under the integration lock.
+- Nightly run 2026-11-03: FAILED before any product work — the agent run
+  aborted with a Hermes conversation-save error ("couldn't save this
+  conversation to disk"); no candidate, no remote write, no lease opened.
+  Tonight's disk check shows the Hermes home healthy (95G free, state.db
+  writable), so the cause was not reproduced; recorded as an unresolved
+  runtime defect, not as idle-by-choice.
+- Nightly run 2026-11-04 (A guard admitted 00:0xZ window, deadline 04:00Z):
+  OPS-001B implemented on branch task/ops-001b-release-check-consent, base
+  eb1958ba, head a17e1148, opened as PR #19 (labels r2, ops-001) with issue
+  #3 updated. Source fact corrected: ZERON_UPDATE_CHECKS does not exist on
+  origin/main at eb1958ba, so the consent gate is new work, not a fix to an
+  existing switch. Baseline behavior reproduced on a throwaway worktree of
+  eb1958ba (probes kept uncommitted): default desktop spawn polled the
+  release feed once within 4.11 s with no consent in the environment
+  (left: 1 / right: 0), a wake inside the 2 s desktop delay reached the feed
+  in 0.61 s, and crates/engine/src/lib.rs called updater.check_now() on every
+  EdgeConfig::token_changes event. Candidate GREEN: zeron-update 21 lib + 1
+  new integration test 0 failed; zeron-engine local_first 12/12 including the
+  new wake test covering B's audit acceptance step 1; zeron background_engine
+  1/1; RED/GREEN re-run with per-side isolated target dirs after a first
+  attempt was contaminated by a shared CARGO_TARGET_DIR. Two honest
+  corrections during the run: a test stub that answered before reading the
+  request (harness defect, fixed) and a scheduler test that mutated shared
+  process env while another scheduler test was live (the race the candidate
+  removes by capturing consent at spawn plus consent_override in tests).
+  New docs/reference/updates.md plus README claims corrected in en, es,
+  zh-CN, ko, ja. Task record: ops/tasks/OPS-001B.md on the PR branch.
+  Retained notices: clippy --all-targets -p zeron-update fails with 5
+  unused_io_amount errors identical to base main; rustfmt --edition 2024
+  reports 25 diffs on crates/engine/src/lib.rs on both base and candidate
+  with no candidate-only diff; remote_terminals network-change lib test
+  flaky 4/5 on candidate and 4/5 on base. NOT RUN: UI evidence (headless),
+  full-workspace suites. Nothing integrated: A-authored R2 awaits B/Sol
+  review of exactly a17e1148.
+- Nightly run 2026-11-05 (A guard admitted OK_LATE_GRACE 00:01:28Z, deadline
+  04:00Z, receipt run-2026-11-05, integration lease pr21.json): B's REMOTE-001
+  transport PR #21 independently reviewed by A at exact head
+  2d05a2bc7c388b91169dd61f6dff0a7d4b58d6e0 (base d5ac5ae3) and integrated as
+  merge ef3e2435; merged tree byte-identical to the reviewed head; main now
+  fff91f44. A-host evidence: rpc package 29 lib + 13 integration + 1 pass, 0
+  fail, 2 ignored; independent RED of the RpcClient drop regression on a
+  throwaway worktree of d5ac5ae3 (Elapsed failure without the Shared.clear
+  fix); zeron-client --lib 35/35 at head; clippy --all-targets exit 0 with
+  warnings only in baseline byte-unchanged files (matches B's inventory);
+  rustfmt and git diff --check clean; no Cargo.lock change; merged-tree rpc
+  suite re-run pass on main. Review record ops/mailboxes/worker-a/reviews/
+  REVIEW-PR21.md; findings F-A21-1 (example token-file label misleading),
+  F-A21-2 (UserKnownHostsFile quoting/list-split notice), F-A21-3 (revoked
+  key does not kill established sessions; inherited semantics). PR #21 shows
+  merged on GitHub; issue #20 updated with the integration contract status.
+  NOT RUN on A's host: B's ignored real-OpenSSH sshd fixture test —
+  openssh-server not installed here (one-package owner ask: openssh-server);
+  B's real-sshd workflow remains B-host evidence until re-run. UI evidence
+  NOT RUN (headless; no UI touched). No non-test caller of connect_ssh exists
+  yet, so the merge changes no product behavior.
+- Nightly run 2026-11-06 (A guard admitted OK_LATE_GRACE 00:01:30Z, deadline
+  04:00Z, receipt run-2026-11-06; integration lock held for both merges): two
+  B-authored PRs reviewed and integrated on A's host. PR #22 (quota-reserve
+  recovery, ops/worker-b) reviewed at exact head
+  75b9429c360fd57f13cb917af82338c6360ed0ec (base 2184e3e0), integrated as
+  merge 0ae10c5b: 41 offline tests ran at head (40 pass + 1 inherited httpx
+  test NOT RUN on this host), base-tree RED reproduction of the inherited
+  frozen-clock preflight failure (35 ran / 1 failure + 1 error at 2184e3e0),
+  single-removed-line diff audit confirming no cap/model/schedule edits,
+  merged ops/worker-b byte-identical to the reviewed head. PR #23 (real zeron
+  server commands for enrollment/sessions/revocation, R2, issue #20) reviewed
+  at exact head c33e2e5723bdad50c4793bd510931568af5e00f6 (base 2184e3e0),
+  integrated as merge d6f882fc: cargo test -p zeron --no-default-features
+  25 pass / 0 fail / 1 ignored at head; the desktop-feature build B asked A
+  to cover (zeron-ui compiled on A's host, servers + background_engine
+  targets) exit 0; clippy exit 0 with only B's four retained baseline
+  warnings; rustfmt/git-diff --check clean; empty Cargo.lock diff; A-side
+  headless CLI grounding (seven subcommands, offline list, escape-name
+  rejection, no ipc-token ever created); combined-tree re-run 25/0/1 plus
+  41-ran/40-pass python discovery; apps/zeron byte-identical to the reviewed
+  head. Review records: ops/mailboxes/worker-a/reviews/REVIEW-PR23.md plus
+  PR comments (ids 6673101789, 6673163248, review 5794045958) and issue
+  updates #4 (6673102182) and #20 (6673163248), all david-noether[bot].
+  main now d6f882fc, pushed and read back. NOT RUN on A's host: B's ignored
+  real-sshd workflow (openssh-server still absent — one-package owner ask
+  re-confirmed); rendered UI evidence (headless; build config changed, not UI
+  behavior). New notices F-A23-1 (list hard-fails on a corrupt record),
+  F-A23-2 (disconnect acts via 250 ms generation poll; revoked keys never
+  kill established sessions — inherited F-A21-3), F-A23-3 (canonical absolute
+  token paths require re-enrollment after a move).
+- Next action (next scheduled run): A-owned acceptance slice for issue #20
+  that the merged CLI does not yet cover — native enrollment/server-picker UI
+  and server-side per-project workspace-grants design (CLI and transport are
+  now integrated; do not duplicate them). Still pending: worker B/Sol review
+  of PR #19 head a17e1148; on approval integrate under the integration lock
+  and re-verify the combined tree. Owner decision open for OPS-001B: whether
+  a managed Linux install should set ZERON_UPDATE_CHECKS=1 in
+  edge/src/install.sh (default stays local; both switches documented). Also
+  outstanding: B's independent reviews of A's PRs #6 (c78e2601), #7
+  (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates without them.
+  A-host re-verification of B's real-sshd tests unlocks once the owner
+  installs openssh-server.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
