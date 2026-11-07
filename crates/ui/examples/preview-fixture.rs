@@ -91,7 +91,10 @@ fn main() -> anyhow::Result<()> {
                     &port.to_string(),
                 ])
                 .current_dir(&project)
-                .env(zeron_proto::ORIGIN_ENV, zeron_proto::chat_origin("preview-fixture"))
+                .env(
+                    zeron_proto::ORIGIN_ENV,
+                    zeron_proto::chat_origin("preview-fixture"),
+                )
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::inherit())
                 .spawn()?,
@@ -104,7 +107,10 @@ fn main() -> anyhow::Result<()> {
             .arg("api.js")
             .arg(port().to_string())
             .current_dir(&project)
-            .env(zeron_proto::ORIGIN_ENV, zeron_proto::chat_origin("preview-fixture"))
+            .env(
+                zeron_proto::ORIGIN_ENV,
+                zeron_proto::chat_origin("preview-fixture"),
+            )
             .spawn()?,
     );
     let runtime = tokio::runtime::Runtime::new()?;

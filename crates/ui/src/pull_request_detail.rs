@@ -2526,7 +2526,9 @@ mod tests {
         );
         cx.simulate_keystrokes("cmd-c");
         assert_eq!(
-            cx.read_from_clipboard().and_then(|item| item.text()).as_deref(),
+            cx.read_from_clipboard()
+                .and_then(|item| item.text())
+                .as_deref(),
             Some("First")
         );
         page.update(cx, |page, cx| page.select_tab(Tab::Activity, cx));
@@ -2785,9 +2787,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn pull_request_board_updates_live_tabs_once_and_keeps_drafts(
-        cx: &mut gpui::TestAppContext,
-    ) {
+    fn pull_request_board_updates_live_tabs_once_and_keeps_drafts(cx: &mut gpui::TestAppContext) {
         let runtime = fixture::runtime();
         let _guard = runtime.enter();
         fixture::init(cx);
@@ -2841,7 +2841,9 @@ mod tests {
             // Repeated activation while loading must not start more reads.
             page.update_board_preview(board_preview(&"b".repeat(40)), cx);
         });
-        rpc.settle(cx, &runtime, |cx| page.read_with(cx, |page, _| !page.loading));
+        rpc.settle(cx, &runtime, |cx| {
+            page.read_with(cx, |page, _| !page.loading)
+        });
         assert_eq!(rpc.completed(), 1, "the diff waits for Code");
         page.update(cx, |page, cx| {
             assert!(page.tab == Tab::Activity);
@@ -2856,7 +2858,9 @@ mod tests {
             }
             page.select_tab(Tab::Code, cx);
         });
-        rpc.settle(cx, &runtime, |cx| page.read_with(cx, |page, _| page.diff.is_some()));
+        rpc.settle(cx, &runtime, |cx| {
+            page.read_with(cx, |page, _| page.diff.is_some())
+        });
         page.read_with(cx, |page, cx| {
             assert_eq!(page.diff.as_ref().unwrap().patch, "new patch");
             assert_eq!(page.comment_input.read(cx).text(), "Keep my draft");
@@ -2865,9 +2869,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn pull_request_board_revision_during_a_read_is_not_lost(
-        cx: &mut gpui::TestAppContext,
-    ) {
+    fn pull_request_board_revision_during_a_read_is_not_lost(cx: &mut gpui::TestAppContext) {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let runtime = fixture::runtime();
         let _guard = runtime.enter();

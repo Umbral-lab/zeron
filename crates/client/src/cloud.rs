@@ -234,7 +234,10 @@ impl Client {
             Ok(repos) => {
                 let mut cache = crate::lock(&self.inner.cloud_repos);
                 for repo in &repos.repos {
-                    cache.insert(repo.full_name.to_ascii_lowercase(), CloudRepoRef::from(repo));
+                    cache.insert(
+                        repo.full_name.to_ascii_lowercase(),
+                        CloudRepoRef::from(repo),
+                    );
                 }
                 drop(cache);
                 Ok(repos.repos)
@@ -805,11 +808,13 @@ impl Client {
             // the status read itself is the edge failing for a moment (it
             // answers that read even unconfigured): an error, to retry.
             let status_read = segments == ["cloud"];
-            return Err(if is_read && (matches!(status, 404 | 501) || (status == 503 && !status_read)) {
-                Failure::Missing(error)
-            } else {
-                Failure::Error(error)
-            });
+            return Err(
+                if is_read && (matches!(status, 404 | 501) || (status == 503 && !status_read)) {
+                    Failure::Missing(error)
+                } else {
+                    Failure::Error(error)
+                },
+            );
         }
         serde_json::from_slice(&bytes).map_err(|e| {
             Failure::Error(ClientError::HostError(format!(

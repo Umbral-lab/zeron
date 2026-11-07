@@ -348,6 +348,20 @@ impl EngineCore {
         )));
         let harness_updates =
             harness_updates::HarnessUpdateCoordinator::new(data_dir, registry.clone());
+        // OPS-001B consent boundary: background-check consent is captured once
+        // here at assembly, and scheduled harness polling honors it — without
+        // ZERON_UPDATE_CHECKS the worker never fetches a release feed. An
+        // explicit check from Settings stays an intentional action.
+        harness_updates.set_scheduled_consent(zeron_update::background_update_checks_enabled());
+        // Wire the published compatibility policy before the worker can run a
+        // first scheduled pass: the wiring used to live only later in
+        // Engine::assemble_runtime, where a consented startup check raced it.
+        if let Some(edge) = edge.as_ref() {
+            harness_updates.set_compatibility_feed(format!(
+                "{}/releases/harness-compatibility.json",
+                edge.url.trim_end_matches('/')
+            ));
+        }
         harness_updates.start();
         sessions.set_titles(TitleGenerator::new(
             workspace.clone(),

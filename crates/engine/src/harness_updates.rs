@@ -563,6 +563,13 @@ struct Inner {
     /// the registry release the last check reported, installed verbatim by
     /// apply so a registry change in between cannot swap what gets installed.
     antigravity_release: Mutex<Option<zeron_harness::acp::AntigravityRelease>>,
+    /// Background-check consent captured once at engine assembly
+    /// (`ZERON_UPDATE_CHECKS`, docs/reference/updates.md). Scheduled polling —
+    /// the worker's startup pass, its periodic re-checks, binary-change wakes
+    /// and a settings view opening — fetches only while this is granted.
+    /// Explicit `check_all`/`check_one` calls remain intentional user actions
+    /// and do not require it.
+    scheduled_consent: std::sync::atomic::AtomicBool,
 }
 
 /// Cloneable engine service exposed to RPC and the periodic worker.
@@ -698,13 +705,17 @@ impl HarnessUpdateCoordinator {
                     .timeout(COMMAND_TIMEOUT)
                     .build()
                     .unwrap_or_default(),
+                scheduled_consent: std::sync::atomic::AtomicBool::new(false),
             }),
         }
     }
 
-    /// Start the immediate check plus the six-hour jittered/retry loop. Bare
-    /// synchronous test assemblies simply omit the worker and can still use
-    /// the explicit RPC methods once running under Tokio.
+    /// Start the immediate check plus the six-hour jittered/retry loop. The
+    /// scheduled passes are background network activity and only run while
+    /// background-check consent is granted ([`Self::set_scheduled_consent`],
+    /// captured once at engine assembly). Bare synchronous test assemblies
+    /// simply omit the worker and can still use the explicit RPC methods once
+    /// running under Tokio.
     pub fn start(&self) {
         if tokio::runtime::Handle::try_current().is_err() {
             return;
@@ -717,6 +728,19 @@ impl HarnessUpdateCoordinator {
         *worker = Some(tokio::spawn(async move {
             let mut retry = FIRST_RETRY;
             'checks: loop {
+                // OPS-001B boundary: a scheduled pass is background network
+                // activity — the published compatibility policy plus each
+                // registry's latest-version lookups — and it runs only under
+                // the background-check consent captured at assembly. Without
+                // consent the worker stays parked for shutdown and fetches
+                // nothing; explicit `check_all`/`check_one` calls are separate
+                // intentional actions and never pass through this loop.
+                if !coordinator.scheduled_checks_allowed() {
+                    tokio::select! {
+                        _ = coordinator.inner.shutdown.cancelled() => break,
+                        _ = tokio::time::sleep(CHECK_INTERVAL) => continue 'checks,
+                    }
+                }
                 // Shutdown must not wait out slow probes or registry requests.
                 let snapshot = tokio::select! {
                     _ = coordinator.inner.shutdown.cancelled() => break,
@@ -756,7 +780,13 @@ impl HarnessUpdateCoordinator {
 
     /// [`Self::recheck_changed_binaries`] in the background: a status view
     /// just opened, and a row stale since an outside update would show now.
+    /// Opening a view is a wake, not an intentional check, so it honors the
+    /// background-check consent just like the scheduled loop: without it the
+    /// rows keep showing what is already known locally and nothing is fetched.
     pub fn recheck_changed_binaries_soon(&self) {
+        if !self.scheduled_checks_allowed() {
+            return;
+        }
         if tokio::runtime::Handle::try_current().is_err() {
             return;
         }
@@ -845,6 +875,22 @@ impl HarnessUpdateCoordinator {
             state.url = Some(url);
             state.fetched_at = None;
         }
+    }
+
+    /// Record the background-check consent (`ZERON_UPDATE_CHECKS`,
+    /// docs/reference/updates.md) exactly once, at engine assembly. Scheduled
+    /// harness polling — startup pass, periodic re-checks, binary-change wakes
+    /// and view-opening re-checks — fetches only while it is granted.
+    pub fn set_scheduled_consent(&self, consent: bool) {
+        self.inner
+            .scheduled_consent
+            .store(consent, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    fn scheduled_checks_allowed(&self) -> bool {
+        self.inner
+            .scheduled_consent
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Fetch the published policy when it is due. A missing file (404) is an
@@ -1573,11 +1619,14 @@ impl HarnessUpdateCoordinator {
                 }
             }
             UpdatePlan::MuseLauncher(launcher) => match self.begin_install(harness, &cancel) {
-                Ok(()) => {
-                    run_command_output_env(&launcher, &["--version"], UPDATE_TIMEOUT, MUSE_UPDATE_ENV)
-                        .await
-                        .map(drop)
-                }
+                Ok(()) => run_command_output_env(
+                    &launcher,
+                    &["--version"],
+                    UPDATE_TIMEOUT,
+                    MUSE_UPDATE_ENV,
+                )
+                .await
+                .map(drop),
                 Err(error) => Err(error),
             },
             UpdatePlan::Homebrew(package) => match resolve_brew(&package.brew) {
@@ -2971,7 +3020,8 @@ fn is_muse_launcher(path: &Path) -> bool {
         return false;
     }
     let real = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    std::fs::metadata(&real).is_ok_and(|metadata| metadata.is_file() && metadata.len() <= 128 * 1024)
+    std::fs::metadata(&real)
+        .is_ok_and(|metadata| metadata.is_file() && metadata.len() <= 128 * 1024)
         && std::fs::read(&real).is_ok_and(|bytes| {
             let text = String::from_utf8_lossy(&bytes);
             text.contains("muse-code/launcher-") && text.contains("MUSE_SYNC_UPDATE")
@@ -3291,6 +3341,9 @@ mod tests {
         registry.register(Arc::new(ExecutableHarness(executable, HarnessId::Grok)));
         let coordinator = super::HarnessUpdateCoordinator::new(temp.path(), registry);
         let mut watch = coordinator.watch();
+        // The scheduled worker polls only with background-check consent; this
+        // test exercises that consented path (a slow startup check).
+        coordinator.set_scheduled_consent(true);
         coordinator.start();
         // The startup check is now blocked in the CLI's version probe.
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -4524,6 +4577,101 @@ esac
         let registry = Arc::new(HarnessRegistry::new());
         registry.register(Arc::new(ExecutableHarness(executable, HarnessId::Grok)));
         registry
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn scheduled_startup_polls_the_feed_only_with_check_consent() {
+        let temp = tempfile::tempdir().unwrap();
+        let (url, hits) = policy_server(Some("{}")).await;
+        let counted = || hits.load(std::sync::atomic::Ordering::SeqCst);
+
+        // Assembled without ZERON_UPDATE_CHECKS: the worker starts, but its
+        // scheduled startup pass must not fetch anything (issue #26 finding).
+        let unconsented =
+            super::HarnessUpdateCoordinator::new(temp.path(), grok_fixture(temp.path()));
+        unconsented.set_compatibility_feed(url.clone());
+        unconsented.start();
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        assert_eq!(
+            counted(),
+            0,
+            "scheduled harness polling must not fetch the release feed without consent"
+        );
+        unconsented.shutdown().await;
+
+        // With the consent captured at assembly, the same scheduled startup
+        // pass fetches the published policy exactly once, as designed.
+        let consented =
+            super::HarnessUpdateCoordinator::new(temp.path(), grok_fixture(temp.path()));
+        consented.set_compatibility_feed(url);
+        consented.set_scheduled_consent(true);
+        consented.start();
+        for _ in 0..60 {
+            if counted() >= 1 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        assert!(
+            counted() >= 1,
+            "consented scheduled startup pass must fetch the published policy"
+        );
+        consented.shutdown().await;
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn opening_a_status_view_rechecks_only_with_check_consent() {
+        let temp = tempfile::tempdir().unwrap();
+        let (url, hits) = policy_server(Some("{}")).await;
+        let executable = temp.path().join("grok");
+        let coordinator =
+            super::HarnessUpdateCoordinator::new(temp.path(), grok_fixture(temp.path()));
+        coordinator.set_compatibility_feed(url);
+        // Pretend an earlier check recorded the CLI, then something outside
+        // zeron replaced the binary. Opening the Settings status view wakes
+        // the stale-row re-check (WATCH_HARNESS_UPDATES).
+        super::lock(&coordinator.inner.checked_binaries).insert(
+            HarnessId::Grok,
+            super::BinaryFingerprint::of(&executable).unwrap(),
+        );
+        coordinator.mutate(HarnessId::Grok, |status| {
+            status.phase = HarnessUpdatePhase::Current;
+            status.installed_version = Some("1.0.4".into());
+        });
+        std::fs::write(
+            &executable,
+            "#!/bin/sh\necho 'grok 1.0.4 (d846eb93d9) [stable]'\n# updated outside zeron\n",
+        )
+        .unwrap();
+
+        coordinator.recheck_changed_binaries_soon();
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        assert_eq!(
+            hits.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "a view-open wake must not fetch the release feed without consent"
+        );
+        assert_eq!(
+            coordinator.status(HarnessId::Grok).phase,
+            HarnessUpdatePhase::Current,
+            "the row keeps showing what is already known locally"
+        );
+
+        coordinator.set_scheduled_consent(true);
+        coordinator.recheck_changed_binaries_soon();
+        for _ in 0..60 {
+            if hits.load(std::sync::atomic::Ordering::SeqCst) >= 1 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        assert!(
+            hits.load(std::sync::atomic::Ordering::SeqCst) >= 1,
+            "with consent the view-open wake must re-check the changed CLI"
+        );
+        coordinator.shutdown().await;
     }
 
     #[cfg(unix)]

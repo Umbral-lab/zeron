@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use zeron_doc::SessionCommandPayload;
 use zeron_proto::{
-    AccessMode, Chat, ChatConfig, HarnessId, ReasoningLevel, RunRequest, SandboxLevel, Session, SessionStatus,
-    Space, UserInputAnswer,
+    AccessMode, Chat, ChatConfig, HarnessId, ReasoningLevel, RunRequest, SandboxLevel, Session,
+    SessionStatus, Space, UserInputAnswer,
 };
 
 use crate::transcript::{RenderOptions, RenderedMessage, render_entries};
@@ -1088,13 +1088,21 @@ impl Tools {
         );
         // A Cloud machine's catalog is checked when it runs, not here; an
         // engine predating modes lists none and runs with full access.
-        if let Some(info) = harnesses.iter().find(|h| h.id == harness).filter(|_| !args.cloud) {
+        if let Some(info) = harnesses
+            .iter()
+            .find(|h| h.id == harness)
+            .filter(|_| !args.cloud)
+        {
             let modes = &info.access_modes;
             anyhow::ensure!(
                 access.is_full_access() || modes.contains(&access),
                 "{harness:?} on device {device_id} cannot run {} (accessModes: {})",
                 access.label(),
-                modes.iter().map(|m| m.label()).collect::<Vec<_>>().join(", ")
+                modes
+                    .iter()
+                    .map(|m| m.label())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
             anyhow::ensure!(
                 !args.plan || info.supports_plan,
