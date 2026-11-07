@@ -167,6 +167,12 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
     checks preserved. Inherited local_first test expects release requests
     after check_now — changing this is an R2 product decision needing owner
     visibility and B/Sol review.
+  - OPS-001B status 2026-11-07: implemented on PR #19, head
+    ef4f86f66fe747b96d5222cb3031eb6369e96cc1 (merge of the reviewed a17e1148
+    with main 79d35247, then the OPS-001B-2 consent increment closing the Sol
+    finding on scheduled harness-compatibility polling). Task records
+    ops/tasks/OPS-001B.md and OPS-001B-2-consent-boundary.md on the head.
+    Unmerged: awaits Sol review of the exact head.
 - Worker A runtime (unchanged): provider custom, base_url
   http://192.168.10.244:8080/v1, model qwen3.8-flash-next-iq3_xxs
   (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
@@ -322,18 +328,50 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   F-A23-2 (disconnect acts via 250 ms generation poll; revoked keys never
   kill established sessions — inherited F-A21-3), F-A23-3 (canonical absolute
   token paths require re-enrollment after a move).
-- Next action (next scheduled run): A-owned acceptance slice for issue #20
-  that the merged CLI does not yet cover — native enrollment/server-picker UI
-  and server-side per-project workspace-grants design (CLI and transport are
-  now integrated; do not duplicate them). Still pending: worker B/Sol review
-  of PR #19 head a17e1148; on approval integrate under the integration lock
-  and re-verify the combined tree. Owner decision open for OPS-001B: whether
-  a managed Linux install should set ZERON_UPDATE_CHECKS=1 in
-  edge/src/install.sh (default stays local; both switches documented). Also
-  outstanding: B's independent reviews of A's PRs #6 (c78e2601), #7
-  (a0ef50a2), #8 (d0fcab13) — nothing A-authored integrates without them.
-  A-host re-verification of B's real-sshd tests unlocks once the owner
-  installs openssh-server.
+- Nightly run 2026-11-07 (A guard admitted 00:01Z window, deadline 04:00Z,
+  receipt run-2026-11-07; integration lock held for both docs merges): the
+  Sol blocking finding on PR #19 (scheduled harness-compatibility polling
+  without consent) was implemented closed. task/ops-001b-release-check-consent
+  advanced a17e1148 -> ef4f86f6 by fast-forward-safe merge 33a14bde of
+  origin/main 79d35247; consent captured once at engine assembly
+  (set_scheduled_consent), worker loop and binary-change wake gated, edge
+  compatibility feed wired during assembly, explicit check_all/check_one
+  unchanged; task record ops/tasks/OPS-001B-2-consent-boundary.md on the head.
+  A-host evidence: baseline local_first 12/0 before edits on 79d35247; after
+  the increment local_first 13/0 exit 0 (new live-engine consent test on a
+  test-owned edge listener: consent-off assembled engine issues zero
+  requests to the policy and manifest routes); zeron-engine --lib 642/0 incl.
+  the new coordinator unit test (wake silent without consent, fetches with
+  consent, grok fixture); zeron-update --lib 21/0; cargo fmt clean (branch-
+  carried rustfmt drift resolved to the repo baseline; origin/main copies
+  were already clean); clippy scoped: update --all-targets 5 unused_io_amount
+  only in inherited lib-test target (same as main), engine --lib --tests exit
+  0 with zero warnings in harness_updates.rs or engine/src/lib.rs (two
+  local_first findings sit on lines present verbatim in main). NOT RUN: UI
+  evidence (headless). PR #19 stays open and unmerged: A-authored R2 awaits
+  B/Sol review of exactly ef4f86f6. Two B-authored R0 docs PRs reviewed and
+  integrated under the lock: PR #25 (docs/audits/2026-11-06-worker-b.md,
+  head 086595a2) via merge 77c2e18d and PR #27 (docs/audits/2026-11-07-
+  worker-b.md, head 114f53e1) via 47f7b619; each merged path byte-identical
+  to its reviewed head (empty diff), main-only delta was the two docs files.
+  main now 47f7b619, pushed and read back. PR #19 evidence comment and issue
+  #26 closure-candidate comment posted as david-noether[bot].
+  Nightly usage: Qwen self-hosted route only (one agent session + bounded
+  build/test probes; totals UNKNOWN, never treated as unlimited); no
+  Terra/Sol/GPT; no quota error retries; no new schedules.
+- Next action (next scheduled run): worker B/Sol review of PR #19 head
+  ef4f86f66fe747b96d5222cb3031eb6369e96cc1 (original OPS-001B slice plus the
+  OPS-001B-2 consent increment, base current main 79d35247); on approval A
+  integrates under the integration lock and re-verifies the combined tree.
+  Second A candidate: the issue #20 acceptance slice the merged CLI does not
+  cover — native enrollment/server-picker UI and server-side per-project
+  workspace-grants design (do not duplicate CLI or transport). Owner decision
+  open for OPS-001B: whether a managed Linux install should set
+  ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default stays local; both
+  switches documented). Still outstanding: B's independent reviews of A's
+  PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored
+  integrates without them. A-host re-verification of B's real-sshd tests
+  unlocks once the owner installs openssh-server.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
