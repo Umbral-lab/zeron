@@ -14,7 +14,7 @@
 - **Windows** — `zeron-<version>-windows-x86_64-setup.exe`
 - **Linux** — `zeron-<version>-linux-<arch>.tar.gz` を展開し、中の `install.sh` を実行
 
-アカウントもネットワーク接続も不要で、セッションはお使いのデバイスに保存されます。アプリは自動でアップデートされます。
+アカウントもネットワーク接続も不要で、セッションはお使いのデバイスに保存されます。アップデートの確認も自動では行われません: 必要なときに "Check for Updates…" を使い、定期確認は `ZERON_UPDATE_CHECKS=1` で許可してください — [docs/reference/updates.md](docs/reference/updates.md) 参照。
 
 ## ヘッドレス実行（CLI）
 
