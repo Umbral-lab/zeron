@@ -167,12 +167,18 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
     checks preserved. Inherited local_first test expects release requests
     after check_now — changing this is an R2 product decision needing owner
     visibility and B/Sol review.
-  - OPS-001B status 2026-11-07: implemented on PR #19, head
-    ef4f86f66fe747b96d5222cb3031eb6369e96cc1 (merge of the reviewed a17e1148
-    with main 79d35247, then the OPS-001B-2 consent increment closing the Sol
-    finding on scheduled harness-compatibility polling). Task records
-    ops/tasks/OPS-001B.md and OPS-001B-2-consent-boundary.md on the head.
-    Unmerged: awaits Sol review of the exact head.
+  - OPS-001B status 2026-11-08: PR #19 (head ef4f86f6) closed without merge,
+    replaced by PR #29 = bounded re-cut: branch task/ops-001b-consent-narrow,
+    single commit 8875924faccee44842e4506a5f87b48b4dcae6f9 directly on main
+    3b99095e, diff exactly 13 files (927+/46-) with every consent file
+    byte-identical to ef4f86f6 (verified empty diff on all 13 paths). Closes
+    B's 2026-11-07 blocking scope finding (92-path diff). The ~79 rustfmt-drift
+    files stay at main's content; ef4f86f6 is retained locally as
+    drift/ops-001b-rustfmt-20261108 for a possible separate bounded formatting
+    task (nothing pushed). Correction recorded in the task record: the previous
+    claim that origin/main copies of the drift files were rustfmt-clean was
+    false — main 3b99095e is the unformatted side (e.g. crates/audio/src/aec.rs).
+    Unmerged: awaits Sol review of PR #29's exact head.
 - Worker A runtime (unchanged): provider custom, base_url
   http://192.168.10.244:8080/v1, model qwen3.8-flash-next-iq3_xxs
   (self-hosted llama.cpp; unmetered — quota UNKNOWN by nature, never treated
@@ -356,22 +362,62 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   to its reviewed head (empty diff), main-only delta was the two docs files.
   main now 47f7b619, pushed and read back. PR #19 evidence comment and issue
   #26 closure-candidate comment posted as david-noether[bot].
+- Nightly run 2026-11-08 (A guard admitted OK 00:00:59Z, deadline 04:00Z,
+  receipt run-2026-11-08, lease ops001b-narrow, integration lock held for the
+  PR #28 merge): PR #19's bounded-review blocker was closed by re-cutting
+  OPS-001B onto current main as PR #29 (single commit 8875924f, 13 files,
+  consent content byte-identical to ef4f86f6); PR #19 closed with a
+  preservation comment; drift retained locally only. A-host evidence on the
+  new head (isolated target dirs): base main local_first 11 pass/0 fail +
+  doc-test; candidate zeron-update 21+1+doc 0 fail; local_first 13/0
+  (11 inherited + 2 consent tests); harness_updates::tests 43/0; engine --lib
+  641/1 with the sole failure remote_terminals network-change, the inherited
+  time-sensitive flake measured 2/3 pass candidate and 2/3 pass base in the
+  same session; clippy -p zeron-engine --lib --tests exit 0 with zero findings
+  in consent files (local_first 195/240 findings sit on lines verbatim in
+  main); clippy -p zeron-update --all-targets exit 101 with the identical 5
+  inherited unused_io_amount errors on candidate (1522/1554/1592/1617/1641)
+  and base (1476/1508/1546/1571/1595), same compile summary; rustfmt clean on
+  the five consent Rust files; git diff --check clean; Cargo.lock untouched.
+  Log SHA256s posted in the PR #29 evidence comment. NOT RUN: UI evidence
+  (headless), packaged desktop, real artifact downloads, real vendor endpoints.
+  Second outcome: B's PR #28 (R2 controller repair) independently reviewed by
+  A at exact head a3199d66 (base 3b99095e): 59 tests ran / 58 pass / 1
+  inherited httpx error NOT RUN, base 41/40 + same inherited error, 18 new
+  offline tests, diff audit clean (fixed-argv only, no cap/model/timer/route
+  edits, APPROVE downgrade gate, report-branch/issue/PR creation removed);
+  integrated under the lock as merge 45a19270 (target pre-verified equal to
+  the reviewed base; ops/worker-b byte-identical to the reviewed head;
+  merged-tree discovery re-run 59/58/1-inherited; pushed, read back ls-remote,
+  GitHub merge API confirmed merged=true with exactly 45a19270). Review
+  record ops/mailboxes/worker-a/reviews/REVIEW-PR28.md; notices F-A28-1
+  (platform-approval semantics vs shared credential model), F-A28-2 (B-host
+  live dispatch NOT VERIFIED on A's host), F-A28-3 (discovery-root test-count
+  pinning). main now 45a19270.
+  Nightly usage: Qwen self-hosted route only (one agent session + bounded
+  deterministic build/test probes; totals UNKNOWN, never treated as
+  unlimited); no Terra/Sol/GPT; no quota error retries; no new schedules.
   Nightly usage: Qwen self-hosted route only (one agent session + bounded
   build/test probes; totals UNKNOWN, never treated as unlimited); no
   Terra/Sol/GPT; no quota error retries; no new schedules.
-- Next action (next scheduled run): worker B/Sol review of PR #19 head
-  ef4f86f66fe747b96d5222cb3031eb6369e96cc1 (original OPS-001B slice plus the
-  OPS-001B-2 consent increment, base current main 79d35247); on approval A
-  integrates under the integration lock and re-verifies the combined tree.
-  Second A candidate: the issue #20 acceptance slice the merged CLI does not
-  cover — native enrollment/server-picker UI and server-side per-project
-  workspace-grants design (do not duplicate CLI or transport). Owner decision
-  open for OPS-001B: whether a managed Linux install should set
-  ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default stays local; both
-  switches documented). Still outstanding: B's independent reviews of A's
-  PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing A-authored
-  integrates without them. A-host re-verification of B's real-sshd tests
-  unlocks once the owner installs openssh-server.
+- Next action (next scheduled run): worker B/Sol review of PR #29 head
+  8875924faccee44842e4506a5f87b48b4dcae6f9 (13-path bounded OPS-001B consent
+  slice on main 3b99095e; the 2026-11-08 controller in PR #28 now selects
+  exactly this kind of pinned candidate); on approval A integrates under the
+  integration lock and re-verifies the combined tree. If B's review requests
+  changes, fix on task/ops-001b-consent-narrow without re-widening the diff.
+  Optional follow-up (defer until OPS-001B lands): the rustfmt-drift cleanup
+  preserved locally on drift/ops-001b-rustfmt-20261108 as its own bounded
+  R1 formatting task. Second A candidate: the issue #20 acceptance slice the
+  merged CLI does not cover — native enrollment/server-picker UI and
+  server-side per-project workspace-grants design (do not duplicate CLI or
+  transport). Owner decision open for OPS-001B: whether a managed Linux
+  install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default
+  stays local; both switches documented). Still outstanding: B's independent
+  reviews of A's PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing
+  A-authored integrates without them. A-host re-verification of B's real-sshd
+  tests unlocks once the owner installs openssh-server. B should pin its
+  ops/worker-b test discovery root per F-A28-3.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
