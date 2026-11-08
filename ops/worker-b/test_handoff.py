@@ -1,195 +1,193 @@
-"""Publication regression fixtures; no network or inference is used by these tests."""
-import base64
+"""Candidate review regressions. All GitHub objects/logs here are explicit fixtures."""
+import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import time
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('nightly_handoff', Path(__file__).with_name('zeron-nightly.py'))
+spec = importlib.util.spec_from_file_location('audit_launcher', Path(__file__).with_name('zeron-nightly.py'))
 assert spec and spec.loader
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
+import zeron_audit as audit
 import zeron_nightly_publish as pub
 
 
-class FakeGitHub:
-    """In-memory remote explicitly used only as a test fixture."""
-    def __init__(self, wrong_actor=False):
+def candidate():
+    paths = ['crates/update/src/lib.rs']
+    return {'number': 19, 'base': 'b' * 40, 'head': 'a' * 40,
+            'url': 'https://example.invalid/pull/19', 'title': 'Fixture candidate',
+            'paths': paths, 'code_paths': paths}
+
+
+class FixtureGitHub:
+    def __init__(self, head='a' * 40, actor=pub.ACTOR):
         self.calls = []
-        self.wrong_actor = wrong_actor
-        self.issue = {}
-        self.pr = {}
-        self.content = ''
+        self.actor = actor
+        self.pr = {'state': 'open', 'head': {'sha': head},
+                   'user': {'login': audit.BUILDER}, 'html_url': 'https://example.invalid/pull/19'}
+        self.review: dict = {}
 
     def __call__(self, method, path, payload, deadline):
         self.calls.append((method, path, payload))
-        user = {'login': 'wrong-fixture' if self.wrong_actor else pub.ACTOR}
-        if method == 'GET' and path.endswith('/git/ref/heads/main'):
-            return {'object': {'sha': 'e' * 40}}
-        if method == 'GET' and '/git/commits/' in path:
-            return {'tree': {'sha': 'b' * 40}}
-        if method == 'POST' and path.endswith('/git/trees'):
-            self.content = payload['tree'][0]['content']
-            return {'sha': 'c' * 40}
-        if method == 'POST' and path.endswith('/git/commits'):
-            self.commit = payload
-            return {'sha': 'd' * 40}
-        if method == 'POST' and path.endswith('/git/refs'):
-            return {'object': {'sha': payload['sha']}}
-        if method == 'POST' and path.endswith('/issues'):
-            self.issue = dict(payload, number=11, html_url='https://example.invalid/issues/11', user=user)
-            return self.issue.copy()
-        if method == 'POST' and path.endswith('/pulls'):
-            self.pr = dict(payload, number=12, html_url='https://example.invalid/pull/12',
-                           user=user, head={'sha': 'd' * 40})
-            return self.pr.copy()
-        if method == 'PATCH' and path.endswith('/issues/11'):
-            self.issue.update(payload)
-            return self.issue.copy()
-        if method == 'GET' and path.endswith('/issues/11'):
-            return self.issue.copy()
-        if method == 'GET' and path.endswith('/pulls/12'):
-            return self.pr.copy()
-        if method == 'GET' and '/git/ref/heads/' in path:
-            return {'object': {'sha': 'd' * 40}}
-        if method == 'GET' and '/contents/' in path:
-            return {'content': base64.b64encode(self.content.encode()).decode()}
-        raise AssertionError('Unexpected fixture API request: ' + method + ' ' + path)
+        if method == 'GET' and path.endswith('/pulls/19'):
+            return self.pr
+        if method == 'POST' and path.endswith('/pulls/19/reviews'):
+            state = {'APPROVE': 'APPROVED', 'REQUEST_CHANGES': 'CHANGES_REQUESTED', 'COMMENT': 'COMMENTED'}[payload['event']]
+            self.review = dict(payload, id=123, html_url='https://example.invalid/review/123',
+                               commit_id=payload['commit_id'], state=state, user={'login': self.actor})
+            return self.review.copy()
+        if method == 'GET' and path.endswith('/reviews/123'):
+            return self.review.copy()
+        raise AssertionError('Unexpected fixture route: ' + method + ' ' + path)
 
 
-class HandoffTests(unittest.TestCase):
+class ReviewTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        state = patch.object(m, 'STATE', self.root)
-        state.start()
-        self.addCleanup(state.stop)
-        self.receipt = self.root / '2026-11-01.json'
-        self.result = self.root / '2026-11-01-result.json'
-        self.record = {'date': '2026-11-01', 'source': 'a' * 40, 'run_id': 'zeron:B:2026-11-01',
-                       'requests': 4, 'reserved_generated': 4000,
-                       'finished_at': '2026-11-01T00:01:00+00:00', 'returncode': 0}
-        m.save(self.receipt, self.record)
+        self.record = {'date': '2026-11-08', 'run_id': 'zeron:B:2026-11-08',
+                       'audit_contract': audit.CONTRACT, 'source': 'a' * 40,
+                       'candidate': candidate(), 'returncode': 0, 'requests': 3, 'reserved_generated': 3000}
+        self.record['checks'] = []
+        for i, argv in enumerate(audit.check_plan(candidate()['paths'])):
+            log = self.root / str(i)
+            raw = b'test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n'
+            log.write_bytes(raw)
+            self.record['checks'].append({'argv': argv, 'status': 'passed', 'returncode': 0,
+                                          'log': str(log), 'sha256': hashlib.sha256(raw).hexdigest()})
+        self.review = {'head': 'a' * 40, 'verdict': 'APPROVE', 'summary': 'Fixture inspection',
+                       'inspected_files': candidate()['code_paths'], 'findings': [], 'limitations': []}
 
-    def finish(self, packet, fake, code=0):
-        if packet is not None:
-            m.save(self.result, packet)
-        with patch.object(m, 'reserve', side_effect=AssertionError('Publication used inference')) as inference:
-            with patch.object(m, 'publish', lambda r, p, d: pub.publish(r, p, d, call=fake)):
-                result = m.finish_run(self.receipt, self.result, code, time.monotonic() + 90)
-            inference.assert_not_called()
-        return result, json.loads(self.receipt.read_text()), json.loads(self.result.read_text())
+    def assess(self):
+        return pub.checkpoint({'completed': True, 'final_response': json.dumps(self.review)}, self.record)
 
-    def test_regression_iteration_exhaustion_is_saved_and_published_partial(self):
-        fake = FakeGitHub()
-        packet = pub.checkpoint({'completed': False, 'final_response': 'Partial source evidence from capped run.'})
-        code, receipt, packet = self.finish(packet, fake)
-        self.assertEqual(code, 2)
-        self.assertEqual(receipt['state'], 'partial')
-        self.assertEqual(receipt['requests'], 4)
-        self.assertEqual(packet['handoff_status'], 'published')
-        self.assertTrue(fake.pr['draft'])
-        self.assertIn('Partial source evidence', (self.root / '2026-11-01-report.md').read_text())
-        self.assertFalse((self.root / 'last-completed-source.json').exists())
-
-    def test_explicit_complete_report_requires_verified_handoff(self):
-        fake = FakeGitHub()
-        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nVerified bounded report.'})
-        code, receipt, packet = self.finish(packet, fake)
-        self.assertEqual(code, 0)
-        self.assertEqual(receipt['state'], 'complete')
-        self.assertFalse(fake.pr['draft'])
-        self.assertEqual(fake.commit['author']['name'], 'Umbral Agent')
-        self.assertTrue((self.root / 'last-completed-source.json').exists())
-
-    def test_zero_exit_without_checkpoint_is_partial_not_success(self):
-        code, receipt, packet = self.finish(None, FakeGitHub())
-        self.assertEqual(code, 2)
-        self.assertEqual(receipt['state'], 'partial')
-        self.assertEqual(packet['handoff_status'], 'published')
-
-    def test_publication_failure_keeps_report_and_fails_run(self):
-        def failed(*args):
-            raise RuntimeError('Fixture API unavailable')
-        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nPreserve this report.'})
-        code, receipt, packet = self.finish(packet, failed)
-        self.assertEqual(code, 2)
-        self.assertEqual(receipt['state'], 'partial')
-        self.assertEqual(packet['handoff_status'], 'failed')
-        self.assertIn('Preserve this report', Path(packet['local_report']).read_text())
-
-    def test_wrong_remote_actor_is_not_claimed_as_published(self):
-        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nReport.'})
-        code, receipt, packet = self.finish(packet, FakeGitHub(wrong_actor=True))
-        self.assertEqual(code, 2)
-        self.assertEqual(packet['handoff_status'], 'failed')
-
-    def test_nonzero_worker_exit_cannot_claim_complete(self):
-        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nReport.'})
-        code, receipt, packet = self.finish(packet, FakeGitHub(), code=124)
-        self.assertEqual(code, 2)
+    def test_complete_marker_without_tests_cannot_complete(self):
+        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nOld source report.'})
         self.assertEqual(packet['status'], 'partial')
+        self.assertEqual(packet['verdict'], 'INCOMPLETE')
 
-    def test_completion_marker_alone_cannot_override_incomplete_agent(self):
-        packet = pub.checkpoint({'completed': False, 'final_response': 'TASK_STATUS: COMPLETE\nSummary after budget exhaustion.'})
-        self.assertEqual(packet['status'], 'partial')
+    def test_pinned_coverage_and_real_log_gate_can_approve_fixture(self):
+        self.assertEqual(self.assess()['verdict'], 'APPROVE')
+        self.assertEqual(self.assess()['status'], 'complete')
 
-    def test_checkpoint_and_report_permissions_are_private(self):
-        _, _, packet = self.finish(None, FakeGitHub())
-        self.assertEqual(self.result.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(Path(packet['local_report']).stat().st_mode & 0o777, 0o600)
+    def test_missing_checks_cannot_approve(self):
+        self.record['checks'] = []
+        self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
 
-    def test_expired_publication_deadline_does_not_call_network(self):
-        with patch.object(pub.subprocess, 'run') as network:
+    def test_subset_of_required_checks_cannot_approve(self):
+        self.record['checks'].pop()
+        self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+
+    def test_timeout_and_not_run_cannot_approve(self):
+        for status in ['timeout', 'not_run', 'failed']:
+            self.record['checks'][0]['status'] = status
+            self.record['checks'][0]['returncode'] = 124
+            self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+
+    def test_tampered_log_cannot_approve(self):
+        Path(self.record['checks'][0]['log']).write_text('different log')
+        self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+
+    def test_zero_test_success_is_not_runtime_evidence(self):
+        check = self.record['checks'][0]
+        raw = b'test result: ok. 0 passed; 0 failed; 0 ignored\n'
+        Path(check['log']).write_bytes(raw)
+        check['sha256'] = hashlib.sha256(raw).hexdigest()
+        self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+
+    def test_wrong_head_missing_coverage_and_ui_gap_cannot_approve(self):
+        for key, value in [('head', 'c' * 40), ('inspected_files', []), ('limitations', ['No rendered evidence'])]:
+            old = self.review[key]
+            self.review[key] = value
+            self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+            self.review[key] = old
+        self.record['candidate']['requires_rendered_ui'] = True
+        self.assertEqual(self.assess()['verdict'], 'INCOMPLETE')
+
+    def test_failed_test_with_material_finding_is_changes_requested_not_pass(self):
+        self.review.update(verdict='CHANGES_REQUESTED', findings=[{'description': 'Fixture blocker'}])
+        c = self.record['checks'][0]
+        raw = b'test result: FAILED. 0 passed; 1 failed; 0 ignored\n'
+        Path(c['log']).write_bytes(raw)
+        c.update(status='failed', returncode=101, sha256=hashlib.sha256(raw).hexdigest())
+        packet = self.assess()
+        self.assertEqual(packet['verdict'], 'CHANGES_REQUESTED')
+        self.assertEqual(packet['status'], 'complete')  # Review completed, not product PASS.
+
+    def test_review_goes_only_to_existing_pr_and_reads_back(self):
+        fake = FixtureGitHub()
+        packet = self.assess()
+        pub.publish(self.record, packet, time.monotonic() + 30, call=fake)
+        self.assertEqual(packet['handoff_status'], 'published')
+        writes = [(method, path) for method, path, _ in fake.calls if method != 'GET']
+        self.assertEqual(writes, [('POST', 'repos/Umbral-lab/zeron/pulls/19/reviews')])
+        self.assertEqual(fake.review['commit_id'], 'a' * 40)
+
+    def test_stale_head_blocks_before_any_write(self):
+        fake = FixtureGitHub(head='c' * 40)
+        with self.assertRaises(RuntimeError):
+            pub.publish(self.record, self.assess(), time.monotonic() + 30, call=fake)
+        self.assertTrue(all(method == 'GET' for method, _, _ in fake.calls))
+
+    def test_wrong_actor_is_not_verified(self):
+        fake = FixtureGitHub(actor='wrong-fixture')
+        with self.assertRaises(RuntimeError):
+            pub.publish(self.record, self.assess(), time.monotonic() + 30, call=fake)
+
+    def test_legacy_publication_cannot_create_markdown_issue_or_pr(self):
+        fake = FixtureGitHub()
+        with self.assertRaises(ValueError):
+            pub.publish({'source': 'a' * 40}, self.assess(), time.monotonic() + 30, call=fake)
+        self.assertEqual(fake.calls, [])
+
+    def test_partial_is_comment_never_approval(self):
+        self.record['checks'] = []
+        packet = self.assess()
+        fake = FixtureGitHub()
+        pub.publish(self.record, packet, time.monotonic() + 30, call=fake)
+        self.assertEqual(fake.review['event'], 'COMMENT')
+        self.assertEqual(pub.finalize(self.record, packet), 2)
+        self.assertEqual(self.record['state'], 'partial')
+
+    def test_finish_without_checkpoint_keeps_private_failure_and_no_completion(self):
+        receipt = self.root / 'receipt.json'
+        result = self.root / 'result.json'
+        m.save(receipt, self.record)
+        fake = FixtureGitHub()
+        with patch.object(m, 'STATE', self.root), patch.object(m, 'publish', lambda r,p,d: pub.publish(r,p,d,call=fake)):
+            code = m.finish_run(receipt, result, 0, time.monotonic() + 30)
+        self.assertEqual(code, 2)
+        self.assertFalse((self.root / 'last-reviewed-candidate.json').exists())
+        self.assertEqual(fake.review['event'], 'COMMENT')
+
+    def test_write_timeout_is_not_replayed_read_retry_is_bounded(self):
+        error = subprocess.TimeoutExpired('fixture', 1)
+        ok = subprocess.CompletedProcess(['fixture'], 0, '{}', '')
+        with patch.object(pub.subprocess, 'run', side_effect=[error, ok]) as run:
+            self.assertEqual(pub.api('GET', 'fixture', None, time.monotonic() + 30), {})
+            self.assertEqual(run.call_count, 2)
+        with patch.object(pub.subprocess, 'run', side_effect=error) as run:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                pub.api('POST', 'fixture', {}, time.monotonic() + 30)
+            self.assertEqual(run.call_count, 1)
+
+    def test_expired_deadline_never_calls_network(self):
+        with patch.object(pub.subprocess, 'run') as run:
             with self.assertRaises(TimeoutError):
                 pub.api('POST', 'fixture', {}, time.monotonic() - 1)
-            network.assert_not_called()
+            run.assert_not_called()
 
-    def test_stale_review_source_is_not_publication_parent(self):
-        fake = FakeGitHub()
-        packet = pub.checkpoint({'completed': True, 'final_response': 'TASK_STATUS: COMPLETE\nReport.'})
-        _, _, packet = self.finish(packet, fake)
-        self.assertEqual(fake.commit['parents'], ['e' * 40])
-        self.assertEqual(packet['publication_base'], 'e' * 40)
-        self.assertIn('a' * 40, fake.content)
-
-    def test_recovery_uses_a_new_branch_not_a_force_update(self):
-        fake = FakeGitHub()
-        packet = pub.checkpoint({'completed': False, 'final_response': 'Existing partial evidence.'})
-        pub.publish(self.record, packet, time.monotonic() + 90, call=fake, recovery=True)
-        refs = [payload for method, path, payload in fake.calls if method == 'POST' and path.endswith('/git/refs')]
-        self.assertEqual(refs[0]['ref'], 'refs/heads/worker-b/audit-2026-11-01-rebased')
-        self.assertFalse(any(method == 'PATCH' and '/git/refs/' in path for method, path, _ in fake.calls))
-        self.assertEqual(fake.commit['parents'], ['e' * 40])
-
-    def test_read_transport_retry_is_bounded_and_writes_are_not_replayed(self):
-        import subprocess
-        timeout = subprocess.TimeoutExpired('fixture', 30)
-        ok = subprocess.CompletedProcess(['fixture'], 0, '{}', '')
-        with patch.object(pub.subprocess, 'run', side_effect=[timeout, ok]) as network:
-            self.assertEqual(pub.api('GET', 'fixture', None, time.monotonic() + 90), {})
-            self.assertEqual(network.call_count, 2)
-        with patch.object(pub.subprocess, 'run', side_effect=timeout) as network:
-            with self.assertRaises(subprocess.TimeoutExpired):
-                pub.api('POST', 'fixture', {}, time.monotonic() + 90)
-            self.assertEqual(network.call_count, 1)
-
-    def test_auth_failure_is_not_read_retried(self):
-        import subprocess
-        failure = subprocess.CompletedProcess(['fixture'], 1, '', 'App authentication/command failed: RuntimeError')
-        with patch.object(pub.subprocess, 'run', return_value=failure) as network:
-            with self.assertRaises(RuntimeError):
-                pub.api('GET', 'fixture', None, time.monotonic() + 90)
-            self.assertEqual(network.call_count, 1)
-
-    def test_secret_material_is_redacted_or_refused(self):
-        self.assertNotIn('ghp_' + 'a' * 30, pub.sanitize('ghp_' + 'a' * 30))
+    def test_secret_material_redacted_or_refused(self):
+        self.assertNotIn('ghp_' + 'x' * 30, pub.sanitize('ghp_' + 'x' * 30))
         with self.assertRaises(ValueError):
-            pub.sanitize('-----BEGIN RSA PRIVATE KEY-----\nfixture')
+            pub.sanitize('-----BEGIN PRIVATE KEY-----\nfixture')
 
 
 if __name__ == '__main__':

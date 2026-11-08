@@ -79,7 +79,7 @@ class NightlyTests(unittest.TestCase):
         with patch.object(m, 'ROOT', self.root):
             result = m.supervise(['python3', '-c', 'import time; time.sleep(20)'],
                                  time.monotonic() + 0.3, self.root / 'log')
-        self.assertNotEqual(result, 0)
+        self.assertEqual(result, 124)
         self.assertLess(time.monotonic() - started, 2)
 
     def test_http_wire_caps_and_retry_accounting(self):
