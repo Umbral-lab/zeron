@@ -400,18 +400,53 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   Nightly usage: Qwen self-hosted route only (one agent session + bounded
   build/test probes; totals UNKNOWN, never treated as unlimited); no
   Terra/Sol/GPT; no quota error retries; no new schedules.
-- Next action (next scheduled run): worker B/Sol review of PR #29 head
-  8875924faccee44842e4506a5f87b48b4dcae6f9 (13-path bounded OPS-001B consent
-  slice on main 3b99095e; the 2026-11-08 controller in PR #28 now selects
-  exactly this kind of pinned candidate); on approval A integrates under the
-  integration lock and re-verifies the combined tree. If B's review requests
-  changes, fix on task/ops-001b-consent-narrow without re-widening the diff.
-  Optional follow-up (defer until OPS-001B lands): the rustfmt-drift cleanup
-  preserved locally on drift/ops-001b-rustfmt-20261108 as its own bounded
-  R1 formatting task. Second A candidate: the issue #20 acceptance slice the
-  merged CLI does not cover — native enrollment/server-picker UI and
-  server-side per-project workspace-grants design (do not duplicate CLI or
-  transport). Owner decision open for OPS-001B: whether a managed Linux
+- Nightly run 2026-11-09 (A guard admitted OK_LATE_GRACE 00:01:29Z, deadline
+  04:00Z, receipt run-2026-11-09, lease ops-001c-check-plan): first live Sol-
+  window run of the repaired candidate-review-v2 controller. B published a
+  pinned review on PR #29 at 00:05:51Z on exactly head 8875924faccee44842e450
+  6a5f87b48b4dcae6f9: verdict INCOMPLETE, zero findings, no verified defect;
+  zeron-update and local_first suites passed on B's host (log SHA256
+  c5ef37ed..., 1ae68565...), the harness_updates::tests invocation timed out
+  mid-compilation at 46.95 s (exit 124, log SHA256 329b02a3...) — an
+  incomplete check, not a failing assertion — and inspection truncation
+  limited diff coverage. INCOMPLETE is not decisive: B re-selects the same
+  pinned head nightly with preserved compilation fingerprints; PR #29 stays
+  frozen at 8875924f with no A edit until a decisive verdict. New A outcome:
+  PR #30 (base 1b169f16e7234e5d75f6fad945b24bae93043368, head ec7c46277a4853
+  25ea05fe2cd526ebc69be97d71, 3 files 52+/2-, labels r2/ops-001, task record
+  ops/tasks/OPS-001C.md) extends the controller's fixed-argv check plan to
+  ops/worker-a candidates — without it PR #8 (d0fcab13, guard tests 20/20
+  passing since 2026-10-31) was permanently filtered as "no supported
+  executable check plan" and had zero reviews for 9 nights; the worker-b plan
+  argv is byte-pinned unchanged by a new test. A-host evidence: head discovery
+  61 ran / 60 pass / 1 inherited httpx error NOT RUN (log SHA256 7be71fb5...),
+  base main 59 / 58 + same inherited error (log SHA256 38bd2da0...), new argv
+  proven on the real PR #8 tree (20/20 OK at d0fcab13). No crates/apps paths,
+  so candidate-review-v2 product sorting keeps #29 ahead of #30. Prepared but
+  NOT pushed: task/remote-002-workspace-grants (local commit 1c408af8) with
+  ops/tasks/REMOTE-002.md — grounded named decisions for server-side
+  per-project workspace grants (remote ipc bearer is all-or-nothing:
+  crates/rpc/src/ipc_auth.rs, server.rs serve_ws_socket; workspaces already
+  device+folder pairs: crates/rpc/src/lib.rs:132); its implementation PR opens
+  only after #29 is decisive, to avoid out-ranking #29 in B's single nightly
+  selection. UI evidence NOT RUN (headless). Nothing integrated tonight.
+  Nightly usage: Qwen self-hosted route only (one agent session + bounded
+  deterministic probes; totals UNKNOWN, never treated as unlimited); no
+  Terra/Sol/GPT; no error retries; no new schedules.
+- Next action (next scheduled run): worker B/Sol re-review of PR #29 head
+  8875924faccee44842e4506a5f87b48b4dcae6f9 (warm-cache re-run expected to
+  clear the 46.95 s compile timeout); on APPROVE A integrates under the
+  integration lock and re-verifies the combined tree. Secondary: B controller
+  review of PR #30 head ec7c4627 exact; after it lands, PR #8 becomes an
+  eligible ops-group candidate. Primary A implementation for the next window:
+  REMOTE-002 server-side per-project workspace grants on
+  task/remote-002-workspace-grants (card committed locally at 1c408af8; open
+  the reviewable PR with tests once #29 is decided). Optional follow-up (defer
+  until OPS-001B lands): rustfmt-drift cleanup preserved locally on
+  drift/ops-001b-rustfmt-20261108 as its own bounded R1 formatting task. Owner
+  decision open: review lane for docs-only PRs #6/#7, which candidate-review-v2
+  deliberately skips as a model-budget design (zero reviews for 9 nights).
+  Owner decision open for OPS-001B: whether a managed Linux
   install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default
   stays local; both switches documented). Still outstanding: B's independent
   reviews of A's PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing
