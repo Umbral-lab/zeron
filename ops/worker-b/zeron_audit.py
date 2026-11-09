@@ -89,8 +89,9 @@ def check_plan(paths):
             add(['cargo', 'test', '--locked', '-p', package, '--', '--test-threads=1'])
     if any(p.startswith('apps/zeron/') for p in paths):
         add(['cargo', 'test', '--locked', '-p', 'zeron', '--no-default-features', '--', '--test-threads=1'])
-    if any(p.startswith('ops/worker-b/') for p in paths):
-        add(['python3', '-m', 'unittest', 'discover', '-s', 'ops/worker-b', '-p', 'test_*.py'])
+    for directory in ('ops/worker-b/', 'ops/worker-a/'):
+        if any(p.startswith(directory) for p in paths):
+            add(['python3', '-m', 'unittest', 'discover', '-s', directory.rstrip('/'), '-p', 'test_*.py'])
     return plans
 
 
