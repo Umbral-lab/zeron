@@ -433,19 +433,65 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   Nightly usage: Qwen self-hosted route only (one agent session + bounded
   deterministic probes; totals UNKNOWN, never treated as unlimited); no
   Terra/Sol/GPT; no error retries; no new schedules.
-- Next action (next scheduled run): worker B/Sol re-review of PR #29 head
-  8875924faccee44842e4506a5f87b48b4dcae6f9 (warm-cache re-run expected to
-  clear the 46.95 s compile timeout); on APPROVE A integrates under the
-  integration lock and re-verifies the combined tree. Secondary: B controller
-  review of PR #30 head ec7c4627 exact; after it lands, PR #8 becomes an
-  eligible ops-group candidate. Primary A implementation for the next window:
-  REMOTE-002 server-side per-project workspace grants on
-  task/remote-002-workspace-grants (card committed locally at 1c408af8; open
-  the reviewable PR with tests once #29 is decided). Optional follow-up (defer
-  until OPS-001B lands): rustfmt-drift cleanup preserved locally on
-  drift/ops-001b-rustfmt-20261108 as its own bounded R1 formatting task. Owner
-  decision open: review lane for docs-only PRs #6/#7, which candidate-review-v2
-  deliberately skips as a model-budget design (zero reviews for 9 nights).
+- Nightly run 2026-11-10 (A guard admitted OK_LATE_GRACE 00:01:50Z, deadline
+  04:00Z, receipt run-2026-11-10, lease remote-002-grants): REMOTE-002
+  implemented and published as PR #31 (branch task/remote-002-workspace-grants,
+  commits 1c408af8 card + 31ccd31e7d094afc6f6264edc33634000867aaad head, target
+  base main e594db59, 7 code files + 1 task card, GitHub mergeable true).
+  Server-side grants: new crates/rpc/src/grants.rs (owner-only
+  data_dir/ipc-grants.json, per-grant bearer tokens bound to workspace space
+  ids, ipc-token-style 0600/exclusive/symlink-safe writes, corrupt file refuses
+  reads and writes; ScopedRpcService refuses non-granted or unidentifiable
+  workspace calls before the engine); server.rs binds a per-session
+  WorkspaceScope at bearer presentation (main ipc-token keeps full access
+  byte-compatibly) and fails closed with 503 when the grants file exists but
+  cannot be read; engine passes Some(grants_path(data_dir)); ui/ssh call sites
+  pass None; servers CLI gains grant-add / grant-list / grant-revoke operating
+  the same-host engine's grants file. Card D4's enrollment-path push to a
+  remote machine's grants file was NOT built and is recorded as a follow-up
+  task, not folded into acceptance. A-host evidence at the exact head:
+  zeron-rpc --lib 35/35 (incl. scoped-service unit test, wire test
+  grant_bearers_are_served_scoped_over_the_wire, corrupt-grants 503 test);
+  zeron --lib servers:: 11/11 (incl. grants_add_list_and_revoke_keeps_bearers_out_of_listings);
+  zeron --test servers 2 pass + 1 inherited OpenSSH ignore; zeron-rpc --test
+  ssh 1 pass + 1 inherited ignore; clippy -p zeron-rpc --all-targets exit 0;
+  git diff --check clean; Cargo.lock untouched; combined log SHA256
+  293057dd0f9054db07b78c9fd2dae176db5a486813b9c791d4c5be0df57de5da. UI evidence
+  NOT RUN (headless). Second controller night: B's 00:05:41Z pinned review on
+  PR #29 at 8875924f is INCOMPLETE again but decisive-quality evidence: the
+  warm-cache re-run cleared last night's compile timeout and harness_updates::tests
+  now FAILS with a concrete assertion (package_managed_claude_has_manual_guidance_and_cask_channel,
+  crates/engine/src/harness_updates.rs:4339, can_apply_update(ClaudeCode, npm),
+  suite 42/1, log SHA256 6177105c...) while zeron-update and local_first passed
+  (f31501d7..., 4411c0f3...). Reproduction of that failure on A's host: NOT RUN
+  this window. Two consecutive non-decisive reviews on the same pinned head is
+  an escalation signal: #29 is treated as frozen on the A side pending either a
+  dedicated bounded A investigation (next action below) or an owner decision;
+  A posted this status as a PR #29 comment and expects B's next nightly to
+  select #31 as the only crates/-carrying open candidate — if B's pinned logic
+  keeps re-selecting #29 instead, that is a controller behavior fact for B's
+  side to confirm. Nothing integrated (nothing A-authored is approved); PR #31
+  awaits B review of its exact head. Nightly usage: Qwen self-hosted route only
+  (one agent session + bounded deterministic probes; totals UNKNOWN, never
+  treated as unlimited); no Terra/Sol/GPT; no error retries; no new schedules.
+- Next action (next scheduled run): worker B controller review of PR #31 head
+  31ccd31e7d094afc6f6264edc33634000867aaad (the only crates/-carrying open
+  candidate; A-authored R2 needs B review, and Sol-grade review for R2 per
+  AGENTS.md). PR #29 head 8875924f is frozen on the A side after two
+  consecutive INCOMPLETE reviews; the concrete harness_updates assertion
+  (can_apply_update(ClaudeCode, npm) at harness_updates.rs:4339 on B's host)
+  needs either a dedicated bounded A reproduction/investigation task on A's
+  host or an owner decision — do not re-cut #29 silently a third time.
+  Secondary: B controller review of PR #30 head ec7c4627 exact; after it
+  lands, PR #8 becomes an eligible ops-group candidate. If B's pinned-worktree
+  selection keeps re-picking frozen #29 over #31, B should record that
+  controller fact for the owner. Optional follow-up (defer until OPS-001B
+  lands): rustfmt-drift cleanup preserved locally on
+  drift/ops-001b-rustfmt-20261108 as its own bounded R1 formatting task. New
+  follow-up task candidate (not started): REMOTE-002's enrollment-path push of
+  grant intents to a remote machine's grants file. Owner decision open: review
+  lane for docs-only PRs #6/#7, which candidate-review-v2 deliberately skips as
+  a model-budget design (zero reviews for 10 nights).
   Owner decision open for OPS-001B: whether a managed Linux
   install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default
   stays local; both switches documented). Still outstanding: B's independent
