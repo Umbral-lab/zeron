@@ -1,5 +1,10 @@
 //! Explicit owned-server enrollment and live session access. Normal local app
 //! startup never reads this registry or connects to an enrolled machine.
+//!
+//! The `grant-*` commands maintain the engine's per-project workspace grants
+//! (`{data_dir}/ipc-grants.json`): a grant bearer is served scoped, so a
+//! remote session holding it can only reach the workspace spaces the grant
+//! names — enforced by the remote engine, not by the client (REMOTE-002).
 
 use std::fs;
 use std::io::{Read, Write};
@@ -45,6 +50,22 @@ pub enum ServerCommand {
     Disconnect { name: String },
     /// Remove local enrollment and disconnect live monitors; does not delete SSH keys.
     Remove { name: String },
+    /// Create a workspace grant: a bearer bound to one project space.
+    GrantAdd {
+        /// Grant name: [A-Za-z0-9._-], max 64 chars.
+        #[arg(long)]
+        name: String,
+        /// Space id the grant may reach (from the Spaces registry).
+        #[arg(long)]
+        space: String,
+    },
+    /// List workspace grants without printing their bearer secrets.
+    GrantList,
+    /// Revoke workspace grants by name (repeat --name for several grants).
+    GrantRevoke {
+        #[arg(long = "name")]
+        names: Vec<String>,
+    },
 }
 
 struct Registry {
@@ -440,7 +461,126 @@ async fn run_inner(command: ServerCommand, data_dir: &Path) -> anyhow::Result<()
             print(&json!({"name":name, "sessions":result?, "observedAtMs":now_ms()?}))
         }
         ServerCommand::Connect { name } => monitor(&registry, &name).await,
+        ServerCommand::GrantAdd { name, space } => {
+            run_grants(
+                data_dir,
+                GrantsOp::Add {
+                    name: &name,
+                    space: &space,
+                    rename: None,
+                },
+            )
+            .await
+        }
+        ServerCommand::GrantList => run_grants(data_dir, GrantsOp::List).await,
+        ServerCommand::GrantRevoke { names } => {
+            run_grants(data_dir, GrantsOp::Revoke { names: &names }).await
+        }
     }
+}
+
+enum GrantsOp<'a> {
+    Add {
+        name: &'a str,
+        space: &'a str,
+        rename: Option<&'a str>,
+    },
+    List,
+    Revoke {
+        names: &'a [String],
+    },
+}
+
+/// Local maintenance of the engine's `{data_dir}/ipc-grants.json` (the engine
+/// reads it on every IPC handshake; no restart is needed). Grant bearers are
+/// secrets: only a freshly created one is printed, existing ones are listed
+/// as short hints.
+async fn run_grants(data_dir: &Path, op: GrantsOp<'_>) -> anyhow::Result<()> {
+    let path = zeron_rpc::grants::grants_path(data_dir);
+    let mut file = zeron_rpc::grants::read_grants(&path)?.unwrap_or(zeron_rpc::grants::GrantsFile {
+        format_version: zeron_rpc::grants::GRANTS_FORMAT_VERSION,
+        grants: Vec::new(),
+    });
+    let mut created: Option<String> = None;
+    let mut revoked = 0usize;
+    match &op {
+        GrantsOp::Add { name, space, rename } => {
+            let name = name.trim();
+            ensure!(!name.is_empty(), "grant name must not be empty");
+            ensure!(!space.trim().is_empty(), "grant space must not be empty");
+            let rename = rename.map(str::trim).filter(|target| !target.is_empty());
+            let existing = file.grants.iter().find(|grant| grant.name == name);
+            ensure!(existing.is_some() || rename.is_none(), "new grants cannot carry --rename");
+            ensure!(
+                rename.is_none_or(|target| {
+                    target == name
+                        || !file.grants.iter().any(|grant| grant.name == target)
+                }),
+                "grant name already exists"
+            );
+            if let Some(old) = file.grants.iter_mut().find(|grant| grant.name == name) {
+                if !old.space_ids.iter().any(|granted| granted == space) {
+                    old.space_ids.push(space.to_string());
+                }
+                if let Some(target) = rename {
+                    old.name = target.to_string();
+                }
+            } else {
+                let token = zeron_rpc::ipc_auth::generate_token()?;
+                file.grants.push(zeron_rpc::grants::GrantRecord {
+                    name: name.to_string(),
+                    token: token.clone(),
+                    space_ids: vec![space.to_string()],
+                });
+                created = Some(token);
+            }
+        }
+        GrantsOp::List => {}
+        GrantsOp::Revoke { names } => {
+            ensure!(!names.is_empty(), "revoke needs at least one --name");
+            let before = file.grants.len();
+            file.grants.retain(|grant| !names.iter().any(|name| name == &grant.name));
+            revoked = before - file.grants.len();
+        }
+    }
+    zeron_rpc::grants::write_grants(&path, &file)?;
+    match op {
+        GrantsOp::Add { name, rename, .. } => {
+            let record = file
+                .grants
+                .iter()
+                .find(|grant| rename.is_some_and(|target| grant.name == target) || grant.name == name)
+                .context("grant record missing after write")?;
+            print(&json!({
+                "status": if created.is_some() { "grantCreated" } else { "grantUpdated" },
+                "name": record.name,
+                "spaceIds": record.space_ids,
+                "tokenHint": hint(&record.token),
+                "token": created,
+            }))
+        }
+        GrantsOp::List => {
+            file.grants.sort_by(|a, b| a.name.cmp(&b.name));
+            print(&json!({
+                "status": "ok",
+                "path": path,
+                "grants": file.grants.iter().map(|grant| json!({
+                    "name": grant.name,
+                    "spaceIds": grant.space_ids,
+                    "tokenHint": hint(&grant.token),
+                })).collect::<Vec<_>>(),
+            }))
+        }
+        GrantsOp::Revoke { names } => print(&json!({
+            "status": if revoked > 0 { "grantsRevoked" } else { "noop" },
+            "requested": names,
+            "revoked": revoked,
+        })),
+    }
+}
+
+fn hint(token: &str) -> String {
+    format!("{}…", &token[..6])
 }
 
 async fn monitor(registry: &Registry, name: &str) -> anyhow::Result<()> {
@@ -675,5 +815,89 @@ mod tests {
         fs::write(&target, "sk-provider-shaped-fixture").unwrap();
         let error = token(&target).unwrap_err().to_string();
         assert!(!error.contains("sk-provider-shaped-fixture"));
+    }
+
+    #[tokio::test]
+    async fn grants_add_list_and_revoke_keeps_bearers_out_of_listings() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = zeron_rpc::grants::grants_path(dir.path());
+        let _ = run_grants(
+            dir.path(),
+            GrantsOp::Add {
+                name: "desk",
+                space: "space-1",
+                rename: None,
+            },
+        )
+        .await
+        .unwrap();
+        let _ = run_grants(
+            dir.path(),
+            GrantsOp::Add {
+                name: "desk",
+                space: "space-2",
+                rename: None,
+            },
+        )
+        .await
+        .unwrap();
+        let _ = run_grants(
+            dir.path(),
+            GrantsOp::Add {
+                name: "lab",
+                space: "space-3",
+                rename: None,
+            },
+        )
+        .await
+        .unwrap();
+        let file = zeron_rpc::grants::read_grants(&path)
+            .unwrap()
+            .expect("grants written");
+        assert_eq!(file.grants.len(), 2);
+        let desk = file.grants.iter().find(|g| g.name == "desk").unwrap();
+        assert_eq!(desk.space_ids, vec!["space-1", "space-2"]);
+        assert_eq!(
+            zeron_rpc::grants::read_grants(&path).unwrap(),
+            Some(file.clone())
+        );
+
+        let _ = run_grants(
+            dir.path(),
+            GrantsOp::Revoke {
+                names: &["desk".to_string(), "ghost".to_string()],
+            },
+        )
+        .await
+        .unwrap();
+        let file = zeron_rpc::grants::read_grants(&path).unwrap().unwrap();
+        assert_eq!(file.grants.len(), 1);
+        assert_eq!(file.grants[0].name, "lab");
+
+        // An unreadable grants file must not be silently replaced.
+        fs::write(&path, "{\"formatVersion\":99,\"grants\":[]}").unwrap();
+        assert!(
+            run_grants(
+                dir.path(),
+                GrantsOp::Add {
+                    name: "late",
+                    space: "space-9",
+                    rename: None,
+                },
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(fs::read_to_string(&path).unwrap(), "{\"formatVersion\":99,\"grants\":[]}");
+        assert!(
+            run_grants(
+                dir.path(),
+                GrantsOp::Revoke {
+                    names: &["lab".to_string()]
+                },
+            )
+            .await
+            .is_err()
+        );
     }
 }

@@ -1242,7 +1242,10 @@ pub async fn serve_ipc(
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     tracing::info!(port, "IPC server listening");
     Ok(tokio::spawn(zeron_rpc::serve_ws_listener(
-        listener, service, token,
+        listener,
+        service,
+        token,
+        Some(zeron_rpc::grants::grants_path(data_dir)),
     )))
 }
 

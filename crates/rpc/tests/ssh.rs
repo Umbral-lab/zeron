@@ -152,6 +152,7 @@ async fn real_openssh_authentication_rpc_disconnect_and_reconnect() {
         listener,
         Arc::new(Engine(active.clone())),
         token.clone(),
+        None,
     ));
     let mut sshd = Sshd::start(port).await;
 

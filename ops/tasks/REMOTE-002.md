@@ -62,3 +62,31 @@ and #7 have had zero reviews for 9 nights because candidate-review-v2 skips
 docs-only candidates to save model budget. Reviewing them needs either an
 owner-approved docs lane in B's controller or owner acceptance that BASE-001/
 BASE-003 wait until a code-carrying change touches the same files.
+
+Implementation resolution (worker A, run-2026-11-10, opened as a reviewable PR):
+- D1 resolved as recommended: enforcement is entirely server-side. A new
+  ScopedRpcService in crates/rpc/src/grants.rs wraps the engine service for
+  grant sessions; workspace-targeted calls outside the grant's space allow-set
+  are refused with a capability error before the engine sees them, and a
+  workspace call the grant cannot identify by space id is also refused.
+- D2 resolved with one concrete refinement: the grants file is
+  {data_dir}/ipc-grants.json (owner-only 0600 write discipline, exclusive
+  create, symlink-safe replace, same as ipc-token), but each grant carries its
+  own bearer token bound to an allow-set of workspace space ids (the
+  device+folder pair identity the Spaces registry already uses on this fork).
+  Absence of the file is byte-compatible today's behavior; the main ipc-token
+  keeps full access.
+- D3 resolved as recommended: binding happens at bearer presentation in
+  serve_ws_socket (main token first, then grant bearers), producing a
+  per-session WorkspaceScope. No per-method re-read of the grants file.
+  New named behavior beyond the card: if the grants file exists but cannot be
+  read or parsed, the handshake refuses every session with 503 (fail closed)
+  instead of falling back to full access.
+- D4 resolved with a scope limit recorded honestly: the servers CLI now has
+  grant-add / grant-list / grant-revoke, and they maintain the grants file of
+  the engine on the same host as the CLI (the remote machine runs the same
+  servers family). The card's "push grant intents through the enrollment path"
+  variant (operating a remote engine's grants file from the client machine)
+  was NOT built in this slice; it is a follow-up slice needing its own task.
+- Acceptance status: criteria 1-3 have executed test evidence on the PR head
+  (see the PR body); criterion 4 awaits worker B review of the exact head.
