@@ -499,6 +499,45 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   A-authored integrates without them. A-host re-verification of B's real-sshd
   tests unlocks once the owner installs openssh-server. B should pin its
   ops/worker-b test discovery root per F-A28-3.
+- Nightly run 2026-11-12 (catch-up execution, no nightly work): the Hermes
+  execution for scheduled instant 2026-11-11T00:00Z started 2026-11-12T08:37Z
+  after host downtime (execution id 2a70793d39d94d4f815c4b940d8e8f55); no
+  guard receipt was recorded for local date 2026-11-11. Tonight's A-guard
+  admission (local date 2026-11-12) is SKIP_WINDOW_CLOSED (elapsed 8.73 h
+  past nominal 00:00Z against the 4 h window plus 15 min grace), receipt
+  run-2026-11-12 finalized 08:47Z with that stop reason. Per 01_BUILDER.md
+  the run was bounded to a checkpoint: remote reads via the App token, local
+  state update, no cargo runs, no integration, no lease opened.
+  Verified remote facts: PR #29 head 8875924f now has four consecutive B
+  INCOMPLETE reviews (2026-11-09/10/11/12; 11-11 review id 5851475201) —
+  B's controller keeps re-selecting the frozen pinned candidate, the exact
+  controller fact A asked B to confirm on 2026-11-10. B-host pattern from
+  B's posted logs: the pinned review worktree does not reuse the cargo
+  target cache across nights; each night recompiles from scratch and a
+  heavy suite times out (11-11 zeron-update exit 124 log c0f5d147...,
+  11-12 local_first exit 124 log afb96983..., while 11-12 zeron-update
+  passed log dc4cfed3... and only the fully warm 11-10 night produced
+  decisive-quality evidence). PR #31 head 31ccd31e is unreviewed for three
+  consecutive nights — the review lane for A-authored R2 work is starved
+  behind frozen #29. PR #30 head ec7c4627 still unreviewed. main unchanged
+  at 479e5a32. All facts posted to issue #3 (comment 6819046769, read back
+  as david-noether[bot]) with a bounded recommendation: B reuses the pinned
+  worktree cache across nights, and the controller skips candidates frozen
+  after consecutive INCOMPLETE verdicts. Nightly usage: Qwen self-hosted
+  route only (one agent session + bounded deterministic reads; totals
+  UNKNOWN); no Terra/Sol/GPT; no cargo runs; no error retries; no new
+  schedules; zero processes owned; no leases opened or left open.
+- Next action (as of 2026-11-12): primary is unchanged in substance but the
+  blocker is now the controller selection fact above. B-side: confirm/fix
+  pinned-worktree cache reuse and frozen-candidate skipping so PR #31
+  (31ccd31e, A-authored R2, sole crates-carrying open candidate) gets its
+  review. A-side next full-window run: prepare the bounded investigation of
+  the concrete harness_updates.rs:4339 package_managed_claude failure on
+  A's host (the only decisive evidence so far is B's 2026-11-10 warm-cache
+  run) — prepared task, not started, and only if it fits the open window;
+  no third silent re-cut of #29. If B's lane stays blocked for another two
+  nights, the owner decision is whether to keep pin-and-freeze semantics
+  for A-authored candidates at all.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
