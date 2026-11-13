@@ -142,13 +142,23 @@ async fn handle_request(
 /// process (another OS user, a sandboxed app, a container sharing the host
 /// network) can open this port, and the engine behind it can start agents and
 /// broker vault grants.
-pub async fn serve_ws_listener(listener: TcpListener, service: Arc<dyn RpcService>, token: String) {
+pub async fn serve_ws_listener(
+    listener: TcpListener,
+    service: Arc<dyn RpcService>,
+    token: String,
+    grants_path: Option<std::path::PathBuf>,
+) {
     let token: Arc<str> = token.into();
     loop {
         match listener.accept().await {
             Ok((stream, peer)) => {
                 tracing::debug!(%peer, "rpc: connection accepted");
-                tokio::spawn(serve_ws_socket(stream, service.clone(), token.clone()));
+                tokio::spawn(serve_ws_socket(
+                    stream,
+                    service.clone(),
+                    token.clone(),
+                    grants_path.clone(),
+                ));
             }
             Err(err) => {
                 tracing::warn!(error = %err, "rpc: accept failed");
@@ -158,7 +168,12 @@ pub async fn serve_ws_listener(listener: TcpListener, service: Arc<dyn RpcServic
     }
 }
 
-async fn serve_ws_socket(stream: TcpStream, service: Arc<dyn RpcService>, token: Arc<str>) {
+async fn serve_ws_socket(
+    stream: TcpStream,
+    service: Arc<dyn RpcService>,
+    token: Arc<str>,
+    grants_path: Option<std::path::PathBuf>,
+) {
     // Two independent gates, both required:
     //
     // 1. Origin. Native viewports dial this socket without an `Origin`
@@ -173,6 +188,26 @@ async fn serve_ws_socket(stream: TcpStream, service: Arc<dyn RpcService>, token:
     //
     // The large `Err` (ErrorResponse) is the shape tungstenite's Callback
     // trait requires; it can't be boxed away here.
+    //
+    // Bearer resolution: the main ipc-token grants full access, exactly as
+    // before grants existed. A token from `{data_dir}/ipc-grants.json`
+    // (`zeron server grant-add`) is served scoped — the session's service is
+    // wrapped in a `ScopedRpcService` that refuses workspace calls outside the
+    // grant's spaces before the engine sees them. The grants file is read once
+    // per handshake; a file that fails to parse serves no session (503).
+    let grants: Option<crate::grants::GrantsFile> = match grants_path.as_deref() {
+        Some(path) => match crate::grants::read_grants(path) {
+            Ok(grants) => grants,
+            Err(err) => {
+                tracing::warn!(error = %err, "rpc: cannot read the ipc grants file");
+                None
+            }
+        },
+        None => None,
+    };
+    let grants_failed = grants_path.is_some() && grants.is_none();
+    let session_scope: std::sync::Mutex<Option<Option<crate::grants::WorkspaceScope>>> =
+        std::sync::Mutex::new(None);
     #[allow(clippy::result_large_err)]
     let authorize = |req: &HandshakeRequest, resp: HandshakeResponse| {
         if let Some(origin) = req.headers().get("origin") {
@@ -188,18 +223,48 @@ async fn serve_ws_socket(stream: TcpStream, service: Arc<dyn RpcService>, token:
             .headers()
             .get(tokio_tungstenite::tungstenite::http::header::AUTHORIZATION)
             .map(|value| value.as_bytes());
-        if !crate::ipc_auth::bearer_matches(&token, presented) {
-            tracing::warn!(
-                presented = presented.is_some(),
-                "rpc: rejecting IPC handshake without the engine's bearer token"
-            );
+        let Some(presented) = presented else {
+            tracing::warn!("rpc: rejecting IPC handshake without the engine's bearer token");
             let mut err = ErrorResponse::new(Some(
                 "missing or wrong IPC token (see {data_dir}/ipc-token)".to_string(),
             ));
             *err.status_mut() = StatusCode::UNAUTHORIZED;
             return Err(err);
+        };
+        match crate::grants::resolve_bearer(grants.as_ref(), &token, presented) {
+            Ok(_scope) if grants_failed => {
+                // A grants file that exists but cannot be understood must not
+                // silently fall back to full access: refuse the session.
+                tracing::warn!("rpc: refusing an IPC session while the grants file is unreadable");
+                let mut err = ErrorResponse::new(Some("ipc grants file is unreadable".to_string()));
+                *err.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+                Err(err)
+            }
+            Ok(scope) => {
+                *session_scope.lock().unwrap() = Some(scope);
+                Ok(resp)
+            }
+            Err(Some(scope)) => {
+                tracing::warn!(
+                    grant = %scope.grant_name,
+                    "rpc: grant bearer resolved to a broken grant record; refusing the session"
+                );
+                let mut err = ErrorResponse::new(Some("ipc grant record is invalid".to_string()));
+                *err.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+                Err(err)
+            }
+            Err(None) => {
+                tracing::warn!(
+                    presented = true,
+                    "rpc: rejecting IPC handshake without the engine's bearer token"
+                );
+                let mut err = ErrorResponse::new(Some(
+                    "missing or wrong IPC token (see {data_dir}/ipc-token)".to_string(),
+                ));
+                *err.status_mut() = StatusCode::UNAUTHORIZED;
+                Err(err)
+            }
         }
-        Ok(resp)
     };
     // Keystrokes and their echoes are tiny frames: Nagle would hold each one
     // behind the peer's delayed ACK of the previous.
@@ -216,6 +281,15 @@ async fn serve_ws_socket(stream: TcpStream, service: Arc<dyn RpcService>, token:
             tracing::warn!(error = %err, "rpc: websocket handshake failed");
             return;
         }
+    };
+    let scope = session_scope
+        .lock()
+        .unwrap()
+        .take()
+        .flatten();
+    let service: Arc<dyn RpcService> = match scope {
+        Some(scope) => Arc::new(crate::grants::ScopedRpcService::new(service, scope)),
+        None => service,
     };
     let (out_tx, out_rx) = mpsc::channel::<String>(256);
     let (in_tx, in_rx) = mpsc::channel::<String>(256);
