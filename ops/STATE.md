@@ -527,17 +527,54 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   route only (one agent session + bounded deterministic reads; totals
   UNKNOWN); no Terra/Sol/GPT; no cargo runs; no error retries; no new
   schedules; zero processes owned; no leases opened or left open.
-- Next action (as of 2026-11-12): primary is unchanged in substance but the
-  blocker is now the controller selection fact above. B-side: confirm/fix
-  pinned-worktree cache reuse and frozen-candidate skipping so PR #31
-  (31ccd31e, A-authored R2, sole crates-carrying open candidate) gets its
-  review. A-side next full-window run: prepare the bounded investigation of
-  the concrete harness_updates.rs:4339 package_managed_claude failure on
-  A's host (the only decisive evidence so far is B's 2026-11-10 warm-cache
-  run) — prepared task, not started, and only if it fits the open window;
-  no third silent re-cut of #29. If B's lane stays blocked for another two
-  nights, the owner decision is whether to keep pin-and-freeze semantics
-  for A-authored candidates at all.
+- Nightly run 2026-11-13 (A guard admitted OK 00:00:40Z, deadline 04:00Z,
+  receipt run-2026-11-13, lease ops001b-4339-investigation, closed at
+  close): bounded A-host investigation of the concrete failure blocking
+  decisive review of PR #29, harness_updates.rs:4339
+  package_managed_claude_has_manual_guidance_and_cask_channel. Outcome:
+  inherited, host-environment-dependent test, not a candidate regression.
+  Evidence (all cargo test --locked -p zeron-engine --lib
+  harness_updates::tests, pinned stable 1.99.1, shared target dir): control
+  at head 8875924f with npm present 43/0 (log SHA256 f5d5b10a...); same head
+  with npm hidden (PATH reduced to cargo bin + /usr/bin:/bin,
+  ZERON_NO_LOGIN_SHELL=1) reproduces B's exact signature — 42 pass / 1 fail,
+  panic at harness_updates.rs:4339:9 (log 1ce3d4b8...); plain main 3b99095e
+  under npm-hidden conditions fails the same test at its pre-candidate line
+  4286, 40 pass / 1 fail (log 858ee4c1...). Diff audit: PR #29's 13-file
+  diff has no hunks in harness_updates/ownership.rs and no changed line
+  touching can_apply_update / update_plan / find_program / npm; git blame:
+  the failing assert is upstream 35a9139a1 (2026-09-27). Mechanism:
+  ownership::package_update resolves the npm binary via find_program (prefix
+  bin, engine PATH, login-shell PATH); no npm means the plan errors and
+  can_apply_update returns false — intentional product behavior, but the
+  unit test asserts true for synthetic paths without controlling host
+  tooling, so it is not hermetic. Published as issue #3 comment 6839653350
+  and PR #29 comment 6839653709 (both read back as david-noether[bot]).
+  New task card ops/tasks/OPS-001D.md (R1 test-hermeticity fix, proposed,
+  not started, must not stack on the frozen #29 head). Controller facts
+  tonight (App-token reads): B's fifth consecutive pinned review of frozen
+  #29 head 8875924f (review 5884048467 00:05:22Z INCOMPLETE) now carries a
+  new blocker in B's own body: the review model call failed — HTTP 400,
+  gpt-6.1-sol not supported when using Codex with a ChatGPT account — so no
+  review reasoning ran; local_first timed out exit 124 mid-compilation with
+  from-scratch compile list (log b68a... zeron-update passed, d77a...
+  local_first timeout); harness_updates::tests NOT RUN on B's side tonight;
+  PR #31 head 31ccd31e and PR #30 head ec7c4627 unreviewed for four and
+  five nights respectively. Posted as issue #3 comment 6839669860.
+  Throwaway worktree /opt/data/home/tmp/wt-1113-base created for the base
+  reproduction and removed after. UI evidence NOT RUN (headless). Nothing
+  integrated. Nightly usage: Qwen self-hosted route only (one agent session
+  + bounded deterministic probes; totals UNKNOWN); no Terra/Sol/GPT from A;
+  no error retries; no new schedules.
+- Next action (as of 2026-11-13): the review lane is now blocked by a named,
+  owner-visible cause on B's side: the pinned Sol model route is rejected by
+  B's account (HTTP 400), so no candidate can receive a decisive review
+  until B's route is fixed or the owner changes it; owner decision requested.
+  B-side zero-budget confirmation of the npm mechanism: command -v npm in
+  B's controller environment. A next window: if the lane is still blocked,
+  start OPS-001D (bounded R1 test hermeticity, B-reviewable) — not folded
+  into #29. #29 stays frozen at 8875924f with no A edit; #31 (31ccd31e) and
+  #30 (ec7c4627) remain awaiting B review; PRs #6/#7/#8 unchanged.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
