@@ -89,6 +89,17 @@ class QueueTests(unittest.TestCase):
     def test_pr_filename_cannot_inject_shell_command(self):
         self.assertEqual(audit.check_plan(['$(curl evil)/README.md']), [])
 
+    def test_worker_a_candidate_gets_bounded_fixed_plan(self):
+        plan = audit.check_plan(['ops/worker-a/run_window_guard.py',
+                                 'docs/OPERATIONS_POLICY_MAPPING.md'])
+        self.assertEqual(plan, [['python3', '-m', 'unittest', 'discover',
+                                 '-s', 'ops/worker-a', '-p', 'test_*.py']])
+
+    def test_worker_b_plan_argv_unchanged_by_worker_a_support(self):
+        plan = audit.check_plan(['ops/worker-b/zeron_audit.py'])
+        self.assertEqual(plan, [['python3', '-m', 'unittest', 'discover',
+                                 '-s', 'ops/worker-b', '-p', 'test_*.py']])
+
     def test_dirty_worktree_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
