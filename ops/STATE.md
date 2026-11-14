@@ -566,16 +566,51 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   integrated. Nightly usage: Qwen self-hosted route only (one agent session
   + bounded deterministic probes; totals UNKNOWN); no Terra/Sol/GPT from A;
   no error retries; no new schedules.
-- Next action (as of 2026-11-13): the review lane is now blocked by a named,
-  owner-visible cause on B's side: the pinned Sol model route is rejected by
-  B's account (HTTP 400), so no candidate can receive a decisive review
-  until B's route is fixed or the owner changes it; owner decision requested.
-  B-side zero-budget confirmation of the npm mechanism: command -v npm in
-  B's controller environment. A next window: if the lane is still blocked,
-  start OPS-001D (bounded R1 test hermeticity, B-reviewable) — not folded
-  into #29. #29 stays frozen at 8875924f with no A edit; #31 (31ccd31e) and
-  #30 (ec7c4627) remain awaiting B review; PRs #6/#7/#8 unchanged.
-- Owner decisions open: transitive license-audit tooling (cargo-about or
+- Nightly run 2026-11-14 (A guard admitted OK 00:00:40Z, deadline 04:00Z,
+  receipt run-2026-11-14, lease ops001d-hermetic, closed at close): built
+  OPS-001D. Branch task/ops-001d-test-hermeticity from main 943de4fe, head
+  e3a7925d, PR #32 (label ops-001) opened and read back as
+  david-noether[bot]. Fix is fixture-based (card option 2): the npm-owned
+  claude case builds a tempdir prefix owning a dummy executable npm in its
+  own bin dir, so the assert resolves through the same find_program path the
+  engine uses; product code untouched (ownership.rs, update_plan,
+  can_apply_update, find_program byte-unchanged), Windows layout covered,
+  plus a deterministic negative (project node_modules copy stays manual).
+  Evidence (cargo test --locked -p zeron-engine, stable 1.99.1, shared
+  target dir, full SHA256s in the PR body): base 943de4fe npm-hidden 40/1
+  reproduces the blocker (5515536f...); head normal 41/0 (549384a2...);
+  head npm-hidden 41/0 final tree (daebdf58...); full engine --lib 640/0/5
+  incl. remote_terminals passing tonight (1c44a33f...); clippy exit 0, zero
+  warnings in harness_updates.rs (aad59870...); rustfmt: two pre-existing
+  drift hunks on base and head, none new. UI NOT RUN (headless). Nothing
+  integrated. Controller facts tonight (App-token reads): sixth consecutive
+  pinned re-cut of frozen #29 head 8875924f, sixth INCOMPLETE (review
+  5899823657); Sol route HTTP 400 second consecutive night; B local_first
+  exit 124 third consecutive cold compile (c8a02c53...), zeron-update
+  passed (517d4201...), harness_updates::tests NOT RUN on B again; PR #31
+  fifth night unreviewed, #30/#8 sixth. Decision note per AGENTS.md posted
+  (issue #3 comment 6868330323): suspend the nightly #29 re-cut until the
+  Sol route is fixed and either npm is provisioned in B's pinned
+  environment or main contains PR #32, which removes the npm dependency
+  from that assertion; suggested review order #32, #31, #30, #8. UI
+  evidence NOT RUN. Nightly usage: Qwen self-hosted route only (one agent
+  session + bounded deterministic probes/reads; totals UNKNOWN); no
+  Terra/Sol/GPT from A; no error retries; no new schedules.
+- Next action (as of 2026-11-14): owner decision on the review lane is now
+  the hard gate (AGENTS.md three-night threshold crossed): fix or re-point
+  B's Sol route (HTTP 400, second night), and either provision npm in B's
+  pinned environment or merge-review order that lands PR #32 first — B
+  reviews PR #32 head e3a7925d (R1) when any working review model exists,
+  then #31 (31ccd31e, R2, five nights pending), then #30, #8; docs-only
+  #6/#7 remain queued. B controller: record command -v npm once (zero
+  model cost) and pause the nightly #29 re-cut while the route is broken.
+  A will not stack anything on 8875924f and opens no further 4339
+  investigation work; OPS-001D is the single tracked artifact for that
+  blocker. Deferred unchanged: REMOTE-002 enrollment-path grant push,
+  rustfmt-drift cleanup branch, ZERON_UPDATE_CHECKS install.sh decision,
+  openssh-server for real-sshd re-verification, cron timezone Europe/Madrid
+  (F-2), OPERATIONS.md DST wording (F-1).
+- Owner decisions open: review-lane route fix (above) — first priority; transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral; display path for UI evidence, or
   acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
   set the zeron-worker-a cron timezone to Europe/Madrid (or re-pin the
