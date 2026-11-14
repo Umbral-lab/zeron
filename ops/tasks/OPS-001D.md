@@ -7,8 +7,11 @@ given package manager (npm, brew, pnpm...) must be able to run the inherited
 test suites green, so a missing host tool never masquerades as a product
 regression in a candidate review.
 
-Status / risk: proposed, not started; R1 (test-hygiene only, no runtime
-behavior change).
+Status / risk: implemented, awaiting independent review (PR open); R1
+(test-hygiene only, no runtime behavior change). Fixture mechanism chosen
+(card option 2): the test builds a temp prefix that owns a dummy npm under
+its own bin dir; no product-code or ownership.rs change at all, so the
+preferred-hook option was not needed.
 
 Owner worker / model route: worker A (Qwen route) authors; B reviews.
 
@@ -48,7 +51,7 @@ Base revision / branch / worktree: base = main at integration time; new
 branch task/ops-001d-test-hermeticity in an isolated worktree. Must NOT be
 stacked on the frozen #29 head.
 
-Lease: none opened yet.
+Lease: ops001d-hermetic (opened 2026-11-14, closed at run close).
 
 Expected verification and evidence: as acceptance item 3; logs under
 /opt/data/home/zeron-target with SHA256 posted to the PR.
@@ -58,11 +61,38 @@ Rollback / data impact: revert single commit; no data or network impact.
 Budget/time: one bounded nightly slice (targeted test suites only, warm
 shared target dir).
 
-Result revision / changed files: none yet.
+Result revision / changed files: branch task/ops-001d-test-hermeticity,
+base main 943de4fe; changed files crates/engine/src/harness_updates.rs
+(test module only, one test function) and ops/tasks/OPS-001D.md; exact
+head recorded in the PR. Sibling-test survey: the Pi apply test and the
+ownership.rs unit tests already build their own fake-tool fixtures and
+passed on npm-hidden hosts unchanged; the claude npm-path assert was the
+only host-tool-dependent assert in this area.
 
-Actual checks: NOT STARTED.
+Actual checks (A host, cargo test --locked -p zeron-engine, pinned stable,
+shared target dir):
+- base 943de4fe, normal env: 41 passed / 0 failed (log a1114_base_normal,
+  SHA256 0025bdab...).
+- base 943de4fe, npm hidden (PATH without /usr/local/bin,
+  ZERON_NO_LOGIN_SHELL=1): 40 passed / 1 failed on the target assert
+  (log a1114_base_npmhidden, SHA256 5515536f...) — reproduces the review
+  lane blocker at tonight's base.
+- head, normal env: 41 passed / 0 failed (log a1114_head_normal, SHA256
+  549384a2...).
+- head, npm hidden: 41 passed / 0 failed, final tree re-run (log
+  a1114_head_npmhidden2, SHA256 daebdf58...).
+- full engine --lib at head: 640 passed / 0 failed / 5 ignored, incl. the
+  inherited remote_terminals flake passing tonight (log a1114_engine_lib,
+  SHA256 e9e6b5ab...).
+- clippy -p zeron-engine --lib --tests: exit 0, 119 baseline warnings,
+  none in harness_updates.rs.
+- rustfmt --edition 2024 --check on harness_updates.rs: two pre-existing
+  drift hunks on base and the identical two on head; no new rustfmt diff
+  introduced.
+- UI evidence: NOT RUN (headless host; no UI touched).
 
-Remaining concerns / next step: schedule after the PR #29/#31 review lane
-question is settled (owner decision on B's Sol route and pinned-review
-environment); if the owner provisions npm in B's pinned environment first,
-this task narrows to hermeticity for CI portability only.
+Remaining concerns / next step: awaiting worker B independent review of the
+exact PR head (R1 -> Terra-grade review acceptable per AGENTS.md, but B's
+review model route currently returns HTTP 400 — see issue #3). If the owner
+instead re-cuts #29 onto a main that contains this fix, the npm blocker in
+B's pinned environment disappears without touching #29's consent content.

@@ -4281,11 +4281,46 @@ esac
             HarnessId::ClaudeCode,
             std::path::Path::new("/home/test/.local/bin/claude")
         ));
-        let npm =
-            std::path::Path::new("/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js");
-        assert!(super::can_apply_update(HarnessId::ClaudeCode, npm));
-        assert_eq!(super::claude_cask_channel(npm), None);
-        assert_eq!(super::claude_package_manager_command(npm), None);
+        // The npm-owned install is proven against a prefix that owns its own
+        // npm, so the lookup is deterministic on hosts without Node. A review
+        // or CI host without npm must not see this test fail as if the
+        // product rule broke (OPS-001D). The product rule itself is
+        // unchanged: the plan only succeeds when the owner's tool is really
+        // found by the same find_program the engine uses.
+        let prefix = tempfile::tempdir().unwrap();
+        let npm_tool = if cfg!(windows) {
+            prefix.path().join("npm.cmd")
+        } else {
+            prefix.path().join("bin").join("npm")
+        };
+        std::fs::create_dir_all(npm_tool.parent().unwrap()).unwrap();
+        std::fs::write(&npm_tool, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&npm_tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let npm_dir = if cfg!(windows) {
+            "node_modules"
+        } else {
+            "lib/node_modules"
+        };
+        let npm = prefix
+            .path()
+            .join(npm_dir)
+            .join("@anthropic-ai/claude-code")
+            .join("cli.js");
+        std::fs::create_dir_all(npm.parent().unwrap()).unwrap();
+        std::fs::write(&npm, "").unwrap();
+        assert!(super::can_apply_update(HarnessId::ClaudeCode, &npm));
+        assert_eq!(super::claude_cask_channel(&npm), None);
+        assert_eq!(super::claude_package_manager_command(&npm), None);
+        // The negative half needs no host tool either: a copy inside some
+        // project's node_modules is manual by ownership alone.
+        let project = prefix.path().join("app").join("node_modules/.bin/claude");
+        std::fs::create_dir_all(project.parent().unwrap()).unwrap();
+        std::fs::write(&project, "").unwrap();
+        assert!(!super::can_apply_update(HarnessId::ClaudeCode, &project));
         assert!(super::can_apply_update(
             HarnessId::Pi,
             std::path::Path::new("/usr/bin/pi")
