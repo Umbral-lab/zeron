@@ -614,8 +614,9 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   evidence NOT RUN. Nightly usage: Qwen self-hosted route only (one agent
   session + bounded deterministic probes/reads; totals UNKNOWN); no
   Terra/Sol/GPT from A; no error retries; no new schedules.
-- Nightly run 2026-11-15 (A guard admitted OK 00:00:33Z, receipt
-  run-2026-11-15, deadline 04:00Z, freeze 03:00Z; integration lease
+- Nightly run 2026-11-15 (A guard admitted OK, receipt run-2026-11-15 with
+  actual_start_utc 2026-11-15T00:00:50.536589+00:00, deadline 04:00Z,
+  freeze 03:00Z; finalized at close; integration lease
   integrate-2026-11-15 opened 00:04:30Z on target refs/heads/main from base
   b880fbef, closed at close). The review lane reopened overnight: worker B
   delivered four direct claude-opus-5-5 reviews 21:52-22:27Z on 2026-11-14
