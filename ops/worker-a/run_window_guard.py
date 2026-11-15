@@ -5,13 +5,26 @@ Deterministic, stdlib-only helper implementing the time rules from
 docs/OPERATIONS.md and ops/policy.json for worker A on A's host:
 
 - one run per project local date (Europe/Madrid), persisted idempotent
-  admission receipt created with exclusive atomic open before any work;
-- deadline = earlier of the local 05:00 instant and 4 elapsed hours after
-  the nominal 01:00 start, timezone-aware and monotonic (no fixed UTC offset);
+  admission receipt created as an exclusively-created atomic link before any
+  work (temp file in the same directory, fsync, os.link; F-B4);
+- deadline = earlier of the local 05:00 UTC instant and 4 real elapsed hours
+  after the nominal 01:00 UTC instant. The local 01:00 and 05:00 are converted
+  to UTC instants FIRST, then min() and the 4-hour cap run on those instants
+  (finding F-B1). On the two clock-change nights per year the local wall span
+  and the real elapsed span differ: the autumn night (01:00 CEST -> 05:00 CET)
+  is 5 real hours and is capped, ending 03:00Z with exactly 4 real elapsed
+  hours; the spring night (01:00 CET -> 05:00 CEST) is only 3 real hours.
+  Comparing local wall-clock fields, or adding 4 hours before conversion,
+  silently permits 5 real hours on the autumn night;
 - late starts admitted only within the 15-minute grace, keeping the original
   deadline; later starts are skipped for that night;
+- a start before the nominal open is EARLY and is not an admission: no receipt
+  is written, so the night can still be admitted in-window and no premature
+  permission exists (finding F-B2). Only OK and OK_LATE_GRACE receipts permit
+  work; assert_can_work refuses every other verdict;
 - phase cutoffs derived from the effective deadline;
-- a finalized receipt refuses any further work on the same run.
+- a finalized receipt refuses any further work on the same run, and
+  re-finalizing returns the original checkpoint unchanged (finding F-B3).
 
 This is A's own evidence and self-discipline instrument, NOT the operator's
 enforcement snapshot. Per docs/OPERATIONS.md, editing this file cannot change
@@ -41,6 +54,9 @@ FREEZE_BEFORE = timedelta(minutes=60)
 CLOSE_FINDINGS_BEFORE = timedelta(minutes=40)
 INTEGRATION_BEFORE = timedelta(minutes=15)
 SHUTDOWN_BEFORE = timedelta(minutes=5)
+# Only these admission verdicts permit product work; EARLY, SKIP_LATE_START and
+# SKIP_WINDOW_CLOSED receipts are evidence records, never permission (F-B2).
+ADMITTED_VERDICTS = ("OK", "OK_LATE_GRACE")
 
 
 def zone():
@@ -57,15 +73,28 @@ def state_dir():
 
 
 def compute_window(date_obj):
-    """Return timing facts for a project local date (datetime.date)."""
+    """Return timing facts for a project local date (datetime.date).
+
+    Timing rule (finding F-B1 fix): the local 01:00 nominal start and the local
+    05:00 close are first converted to their real UTC instants for that date via
+    ZoneInfo, and only then are min() and the 4-hour cap applied - all on UTC
+    instants. Comparing the local wall-clock fields or adding MAX_ELAPSED before
+    conversion silently changes the real elapsed span on the two clock-change
+    nights per year: aware datetimes that share one tzinfo object subtract as
+    naive local times, so 01:00 CEST -> 05:00 CET and 01:00 CET -> 05:00 CEST
+    both looked like 4 elapsed hours while they are really 5 and 3. The cap is
+    therefore enforced on absolute time, which is what docs/OPERATIONS.md already
+    describes: the autumn clock-change night is shortened to 4 real hours
+    (deadline 03:00Z), the spring night may be only 3 real hours.
+    """
     nominal = datetime(
         date_obj.year, date_obj.month, date_obj.day,
         NOMINAL_START_LOCAL[0], NOMINAL_START_LOCAL[1], tzinfo=zone(),
-    )
+    ).astimezone(timezone.utc)
     local_close = datetime(
         date_obj.year, date_obj.month, date_obj.day,
         LOCAL_CLOSE_LOCAL[0], LOCAL_CLOSE_LOCAL[1], tzinfo=zone(),
-    )
+    ).astimezone(timezone.utc)
     deadline = min(local_close, nominal + MAX_ELAPSED)
     return {
         "run_id": f"{PROJECT}:{date_obj.isoformat()}",
@@ -133,7 +162,15 @@ def receipt_path(date_obj, dirpath=None):
 
 
 def admit_run(date_obj, actual_start_utc, dirpath=None, dry_run=False):
-    """Persist admission before work. Idempotent per local date via O_EXCL."""
+    """Persist admission before work. Idempotent per local date via O_EXCL.
+
+    Finding F-B2 fix: an EARLY verdict (a dispatch that fired before the nominal
+    local 01:00 open) is not an admission. No canonical receipt is written for it,
+    so a later in-window admit still creates the day's single receipt, and no
+    receipt exists that assert_can_work could later accept as permission to work.
+    SKIP_LATE_START and SKIP_WINDOW_CLOSED receipts ARE written: they are the
+    evidence that the night was skipped, and assert_can_work refuses them.
+    """
     window = compute_window(date_obj)
     status = start_status(window, actual_start_utc)
     path = receipt_path(date_obj, dirpath)
@@ -151,24 +188,44 @@ def admit_run(date_obj, actual_start_utc, dirpath=None, dry_run=False):
         "start_admission": status["verdict"],
         "start_admission_note": status["note"],
         "remaining_h_at_start": status["remaining_h"],
+        "work_permitted_by_admission": status["verdict"] in ADMITTED_VERDICTS,
         "final_state": None,
         "stop_reason": None,
         "finalized_utc": None,
     }
     if dry_run:
         return {"status": "DRY_RUN", "window": window, "start_admission": status, "receipt": receipt}
+    if status["verdict"] == "EARLY":
+        # Not an admission: refuse and write nothing, so the real window can still
+        # be admitted normally and no premature permission exists on disk.
+        return {"status": "EARLY_NOT_ADMITTED", "window": window, "start_admission": status,
+                "message": "start is before the nominal local open; no receipt written; "
+                           "call admit again at or after the nominal start"}
     payload = json.dumps(receipt, indent=1) + "\n"
-    fd = None
+    # Finding F-B4 fix: the receipt is written to a private temporary file in the
+    # same directory and then linked into place. os.link is exclusively-created
+    # (FileExistsError if the target already exists), fsync happens before the
+    # link, and an interrupted first call can therefore never leave a half-written
+    # canonical path and never overwrites an existing receipt.
+    tmp_path = None
     try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
+                                            prefix=os.path.basename(path) + ".", suffix=".tmp")
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(tmp_path, path)
     except FileExistsError:
         existing = json.loads(open(path, encoding="utf-8").read())
         return {"status": "DUPLICATE", "message": "same-date admission exists; reused, not re-dispatched",
                 "window": window, "existing": existing}
-    try:
-        os.write(fd, payload.encode("utf-8"))
     finally:
-        os.close(fd)
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
     os.chmod(path, 0o600)
     return {"status": "ADMITTED", "window": window, "start_admission": status, "receipt": receipt}
 
@@ -179,6 +236,11 @@ def assert_can_work(date_obj, now_utc, dirpath=None):
     if not os.path.exists(path):
         raise RuntimeError(f"no admission receipt for {date_obj.isoformat()}; call admit first")
     r = json.loads(open(path, encoding="utf-8").read())
+    verdict = r.get("start_admission")
+    if verdict not in ADMITTED_VERDICTS:
+        raise RuntimeError(
+            f"run {r['run_id']} admission {verdict} does not permit work "
+            f"({r.get('start_admission_note', '')}); only OK and OK_LATE_GRACE admit product work")
     if r.get("final_state") == "FINALIZED":
         raise RuntimeError(f"run {r['run_id']} is finalized; further writes refused")
     deadline = datetime.fromisoformat(r["deadline_utc"])
@@ -188,10 +250,16 @@ def assert_can_work(date_obj, now_utc, dirpath=None):
 
 
 def finalize_run(date_obj, stop_reason, now_utc, dirpath=None):
+    """Checkpoint a run. Idempotent: a finalized receipt is returned unchanged."""
     path = receipt_path(date_obj, dirpath)
     if not os.path.exists(path):
         raise RuntimeError(f"no admission receipt for {date_obj.isoformat()}; nothing to finalize")
     r = json.loads(open(path, encoding="utf-8").read())
+    if r.get("final_state") == "FINALIZED":
+        # Finding F-B3 fix: re-finalizing must not invent a second run or move the
+        # recorded stop instant; the first checkpoint stays authoritative.
+        r["already_finalized"] = True
+        return r
     r["final_state"] = "FINALIZED"
     r["stop_reason"] = stop_reason
     r["finalized_utc"] = now_utc.astimezone(timezone.utc).isoformat()
