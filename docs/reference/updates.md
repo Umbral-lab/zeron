@@ -10,6 +10,8 @@ is a decision somebody made.
 | `zeron update` (headless) | You, once per command. | Always available. |
 | Scheduled background check (hourly wall clock, desktop and service) | `ZERON_UPDATE_CHECKS` | Off. |
 | Harness CLI update polls (engine worker: startup pass, periodic re-check, wake on an outside binary change or a Settings view opening) | `ZERON_UPDATE_CHECKS` | Off. |
+| Agent model discovery when nobody asked (app start, a settings page loading): starts the installed agent CLI, which contacts its provider | `ZERON_AGENT_DISCOVERY` | Off. |
+| Agent model discovery you ask for: opening the model picker, the refresh button, running a chat | You. | Always available. |
 | Service applies a found update and restarts in a quiet window | `ZERON_AUTO_UPDATE=1`, managed installs only | Off. |
 | Desktop installs a found update on quit | `ZERON_AUTO_UPDATE=0` turns it off | On. |
 
@@ -26,6 +28,12 @@ what is already known locally. Explicit actions — "Check for Updates…",
 CLI — are your request, not the app's, and work with the background check
 off. Consent is read once when the checker starts, so a value exported in the service
 environment or the desktop session is the one that counts for that process.
+
+Agent CLIs (Claude Code, Codex and the others) are third-party programs that
+contact their provider when they start. Zeron starts one to list its models only
+on your request. Until then the model picker shows the list saved from the last
+time you asked, or the built-in list; `ZERON_AGENT_DISCOVERY=1` (also `true` or
+`yes`) restores discovery at app start. It is read once when the engine starts.
 
 An update that was already found is a separate decision. On the desktop it is
 staged and installed on quit unless `ZERON_AUTO_UPDATE=0`. On a managed headless
