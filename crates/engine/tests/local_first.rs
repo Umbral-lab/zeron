@@ -354,6 +354,183 @@ async fn local_runtime_checks_public_releases_without_starting_edge_links() {
     edge_task.abort();
 }
 
+/// A woken local runtime must not turn into release egress on its own: pokes
+/// re-read the wall clock, and with background-check consent unset
+/// (`ZERON_UPDATE_CHECKS`, the default) nothing is ever due to send. Before the
+/// consent gate existed the same wakes reached the scheduled check once the
+/// initial delay elapsed.
+#[tokio::test]
+async fn local_runtime_wakes_do_not_poll_releases_without_check_consent() {
+    let dir = tempfile::tempdir().unwrap();
+    let (edge_url, requests, edge_task) = rejecting_edge().await;
+    let config = config(dir.path(), edge_url, Some("client_test"), None);
+    let auth = Engine::build_auth(&config).await;
+    let scope = Engine::initial_workspace_scope(&auth);
+    let profile = Engine::resolve_profile(&config, &auth, scope)
+        .unwrap()
+        .expect("local profile is ready");
+
+    let runtime = Engine::assemble_runtime(&config, auth, profile)
+        .await
+        .unwrap();
+    let updater = runtime
+        .core()
+        .updater()
+        .expect("local runtime starts the public release checker");
+
+    for _ in 0..5 {
+        updater.poke();
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    }
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        0,
+        "wakes without background-check consent must not poll the release feed"
+    );
+
+    runtime.shutdown().await;
+    edge_task.abort();
+}
+
+/// End-to-end OPS-001B boundary on the real engine assembly: the harness
+/// update worker starts with the engine, but its scheduled startup pass —
+/// the published compatibility policy plus the per-registry latest-version
+/// lookups — fetches only under ZERON_UPDATE_CHECKS. Without consent a live
+/// engine fetches neither the harness policy nor any release manifest.
+#[tokio::test]
+async fn live_engine_polls_the_harness_feed_only_with_update_check_consent() {
+    // Any panic or early return clears the consent switch, so a failure here
+    // can never leak consent into the other tests of this single-threaded
+    // suite (they assert the opposite default).
+    struct ConsentEnvGuard;
+    impl Drop for ConsentEnvGuard {
+        fn drop(&mut self) {
+            // SAFETY: single-threaded suite, see the set_var call below.
+            unsafe { std::env::remove_var("ZERON_UPDATE_CHECKS") };
+        }
+    }
+    let _consent_guard = ConsentEnvGuard;
+    let policy_requests = Arc::new(AtomicUsize::new(0));
+    let manifest_requests = Arc::new(AtomicUsize::new(0));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let policy_view = policy_requests.clone();
+    let manifest_view = manifest_requests.clone();
+    let edge_task = tokio::spawn(async move {
+        loop {
+            let Ok((mut stream, _)) = listener.accept().await else {
+                break;
+            };
+            let policy = policy_view.clone();
+            let manifest = manifest_view.clone();
+            tokio::spawn(async move {
+                let mut request = [0u8; 4096];
+                let Ok(n) = stream.read(&mut request).await else {
+                    return;
+                };
+                let head = String::from_utf8_lossy(&request[..n]);
+                let route = head.split(' ').nth(1).unwrap_or_default().to_string();
+                let response = if route == "/releases/harness-compatibility.json" {
+                    policy.fetch_add(1, Ordering::SeqCst);
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}".to_string()
+                } else if route.starts_with("/releases/manifest") {
+                    manifest.fetch_add(1, Ordering::SeqCst);
+                    "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                        .to_string()
+                } else {
+                    "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                        .to_string()
+                };
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+    let edge_url = format!("http://{addr}");
+
+    // Both phases use a captured-session (Synced) profile so the edge config
+    // stays live, like on a signed-in install: the harness feed is wired and
+    // every fetch — consented or not — lands on this test's own edge server.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("session.json"),
+        r#"{"refreshToken":"dead","user":{"id":"user_1","email":"u@example.com"},"orgId":"org_1"}"#,
+    )
+    .unwrap();
+    let cfg1 = config(dir.path(), edge_url.clone(), Some("client_test"), None);
+    let auth = Engine::build_auth(&cfg1).await;
+    let scope = Engine::initial_workspace_scope(&auth);
+    let profile = Engine::resolve_profile(&cfg1, &auth, scope)
+        .unwrap()
+        .expect("captured-session profile is ready");
+    let runtime = Engine::assemble_runtime(&cfg1, auth, profile)
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    assert_eq!(
+        policy_requests.load(Ordering::SeqCst),
+        0,
+        "a live engine without check consent must not fetch the harness compatibility feed"
+    );
+    assert_eq!(
+        manifest_requests.load(Ordering::SeqCst),
+        0,
+        "a live engine without check consent must not fetch release manifests"
+    );
+    runtime.shutdown().await;
+
+    // With the consent captured at assembly, the same engine polls the
+    // published policy on its startup pass.
+    // SAFETY: the suite runs with --test-threads=1, so no other test reads
+    // the environment concurrently while this consent switch is set.
+    unsafe { std::env::set_var("ZERON_UPDATE_CHECKS", "1") };
+    let phase2 = tempfile::tempdir().unwrap();
+    std::fs::write(
+        phase2.path().join("session.json"),
+        r#"{"refreshToken":"dead","user":{"id":"user_1","email":"u@example.com"},"orgId":"org_1"}"#,
+    )
+    .unwrap();
+    let cfg2 = config(phase2.path(), edge_url.clone(), Some("client_test"), None);
+    let auth = Engine::build_auth(&cfg2).await;
+    let scope = Engine::initial_workspace_scope(&auth);
+    let profile = Engine::resolve_profile(&cfg2, &auth, scope)
+        .unwrap()
+        .expect("captured-session profile is ready");
+    let runtime = Engine::assemble_runtime(&cfg2, auth, profile)
+        .await
+        .unwrap();
+    // Scheduled polling starts after the worker's five-minute first tick
+    // (FIRST_RETRY), so a four-second window proves only the wiring is live,
+    // not the timer. What this engine-level phase proves instead: with
+    // consent captured at assembly, the compatibility feed wired from the
+    // edge profile is actually reachable through the coordinator's refresh
+    // path — the same refresh every scheduled harness check begins with.
+    // The scheduled gate itself in both directions is covered by
+    // harness_updates::tests::scheduled_startup_polls_the_feed_only_with_check_consent.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    runtime
+        .core()
+        .harness_updates
+        .check_one(HarnessId::Mock)
+        .await
+        .expect("explicit mock-harness check must run on a consented engine");
+    let mut fetched = false;
+    for _ in 0..40 {
+        if policy_requests.load(Ordering::SeqCst) >= 1 {
+            fetched = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    // SAFETY: same single-threaded suite as the set_var above.
+    unsafe { std::env::remove_var("ZERON_UPDATE_CHECKS") };
+    runtime.shutdown().await;
+    edge_task.abort();
+    assert!(
+        fetched,
+        "a consented engine must fetch the published harness compatibility policy when its coordinator checks"
+    );
+}
+
 #[tokio::test]
 async fn revoked_captured_session_stays_on_its_synced_cache() {
     let dir = tempfile::tempdir().unwrap();
