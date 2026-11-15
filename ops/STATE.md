@@ -57,6 +57,24 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
+- Queue as of 2026-11-15 (single-integrator mode; A owns this file; supersedes
+  the per-task queue bullets below, which stay as history):
+  - main = d6c04ec1b83cd9d76fd05157fd39998fe80ffdc6 (pushed, read back).
+  - BASE-001 integrated 97c947bc (approved head c78e2601, review 5907340394).
+  - BASE-003 integrated 53e2bc65 (approved head a0ef50a2, review 5907340643);
+    B's three non-blocking corrections are an open follow-up docs task, and the
+    NOASSERTION direct deps stand as M4 blockers.
+  - OPS-001D integrated 9a77bca0 (approved head e3a7925d, review 5907439210).
+  - OPS-001B / 001B-2 integrated d6c04ec1 (approved head 8875924faccee44842e4506a5f87b48b4dcae6f9,
+    review 5907471708); update consent boundary and local-first default are now
+    on main, verified on the exact merged tree.
+  - OPS-001A review-fix round published, not integrated: head 18b687c1146fb908eea8a872dfe584b9fe06f04e
+    on PR #8 awaiting B re-review (F-B1..F-B4 fixed with red-then-green proof).
+  - OPS-001E open for review: PR #34 head df3cc6e6e5957f9035ad4f6f7ef07bf4bc73a900.
+  - REMOTE-002 CHANGES_REQUESTED: PR #31 head 31ccd31e (review 5907337502), not integrable as-is.
+  - OPS-001C blocked on owner decision F-B5 (branch sharing with OPS-001A).
+  - BASE-002 visual acceptance NOT RUN (headless host, owner decision open).
+
 - Runs 2026-10-30: three A activities on this date — morning bootstrap-baseline
   run (job 4103065fd3d6, 08:37 UTC, bounded R0), owner-directed integration of
   PR #2 (18:02 UTC, merge 660343fe, prompts byte-verified, AGENTS.md identity
@@ -596,24 +614,83 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   evidence NOT RUN. Nightly usage: Qwen self-hosted route only (one agent
   session + bounded deterministic probes/reads; totals UNKNOWN); no
   Terra/Sol/GPT from A; no error retries; no new schedules.
-- Next action (as of 2026-11-14): owner decision on the review lane is now
-  the hard gate (AGENTS.md three-night threshold crossed): fix or re-point
-  B's Sol route (HTTP 400, second night), and either provision npm in B's
-  pinned environment or merge-review order that lands PR #32 first — B
-  reviews PR #32 head e3a7925d (R1) when any working review model exists,
-  then #31 (31ccd31e, R2, five nights pending), then #30, #8; docs-only
-  #6/#7 remain queued. B controller: record command -v npm once (zero
-  model cost) and pause the nightly #29 re-cut while the route is broken.
-  A will not stack anything on 8875924f and opens no further 4339
-  investigation work; OPS-001D is the single tracked artifact for that
-  blocker. Deferred unchanged: REMOTE-002 enrollment-path grant push,
-  rustfmt-drift cleanup branch, ZERON_UPDATE_CHECKS install.sh decision,
-  openssh-server for real-sshd re-verification, cron timezone Europe/Madrid
-  (F-2), OPERATIONS.md DST wording (F-1).
-- Owner decisions open: review-lane route fix (above) — first priority; transitive license-audit tooling (cargo-about or
-  cargo-deny) approval or deferral; display path for UI evidence, or
-  acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
-  set the zeron-worker-a cron timezone to Europe/Madrid (or re-pin the
+- Nightly run 2026-11-15 (A guard admitted OK 00:00:33Z, receipt
+  run-2026-11-15, deadline 04:00Z, freeze 03:00Z; integration lease
+  integrate-2026-11-15 opened 00:04:30Z on target refs/heads/main from base
+  b880fbef, closed at close). The review lane reopened overnight: worker B
+  delivered four direct claude-opus-5-5 reviews 21:52-22:27Z on 2026-11-14
+  after the owner re-pointed B's route (issue #3 comment 6885182532), so
+  this run integrated four independently approved candidates instead of
+  building anything new. main moved b880fbef -> 9a77bca0 (PR #32 head
+  e3a7925d, review 5907439210) -> 97c947bc (PR #6 head c78e2601, review
+  5907340394) -> 53e2bc65 (PR #7 head a0ef50a2, review 5907340643) ->
+  d6c04ec1 (PR #29 head 8875924faccee44842e4506a5f87b48b4dcae6f9, review
+  5907471708); each merge verified with git merge-base --is-ancestor on the
+  exact approved head and git diff --quiet proving merged paths byte-identical
+  to that head, and main was pushed and read back by ls-remote as d6c04ec1.
+  PR #29 was merged only after separate-candidate verification on its exact
+  tree aac18024e1fa33d3369f258eba42a71c7647de60 (engine --lib 642/0/5, 134s;
+  harness_updates::tests with npm hidden 43/0, which the OPS-001D fixture made
+  possible; zeron-update lib+tests 21+1/0; rustfmt clean on every PR-authored
+  file), and the merged tree hash equals that candidate tree exactly, so the
+  tested tree is what landed.
+  Guard lane: worker B's findings on PR #8 (review 5907329673 at head d0fcab13)
+  were confirmed by running the reviewed revision first (red: 10 failures on
+  Python 3.13.5, including the autumn clock-change night that produced a
+  05:00Z deadline while still reporting a 4.0-hour cap) and then fixed
+  (green: 32/32): window arithmetic now converts local 01:00 and 05:00 to real
+  UTC instants before min/cap, EARLY dispatch writes no canonical receipt,
+  SKIP receipts are evidence records that assert_can_work refuses, and
+  admission writes are atomic link() creates. Verified values: 2026-10-25
+  deadline 03:00Z (4.0 real hours), 2026-03-29 03:00Z (3.0), 2026-11-15 04:00Z
+  (4.0). F-1 is closed as inverted: docs/OPERATIONS.md already stated the
+  real-elapsed-hour rule and its arithmetic was always correct. F-B5 (OPS-001A
+  sharing a branch with OPS-001C) stays an owner decision. New head published:
+  task/ops-001a-run-receipt 18b687c1146fb908eea8a872dfe584b9fe06f04e, PR #8
+  body updated with exact revisions.
+  Measured baseline failures, recorded as inherited not introduced: cargo
+  clippy --locked -p zeron-update --lib --tests exits 101 with 5 deny-level
+  unused_io_amount errors at b880fbef (crates/update/src/lib.rs:1476/1508/1546/
+  1571/1595), at 53e2bc65 (same sites) and in the merged tree (1522/1554/1592/
+  1617/1641), introduced upstream by a67871f8; whole-crate engine rustfmt drift
+  is 25 hunks at b880fbef and 23 at 53e2bc65 in files no candidate touched
+  (the two pre-existing harness_updates.rs hunks disappeared with PR #29). A
+  bounded follow-up was opened for the clippy debt: card ops/tasks/OPS-001E.md,
+  branch task/ops-001e-update-clippy-debt head df3cc6e6e5957f9035ad4f6f7ef07bf4
+  bc73a900 on base d6c04ec1, PR #34 (label ops-001): red at the exact base tree
+  (exit 101, 5 errors), green after (clippy exit 0 zero warnings, zeron-update
+  21+1 passed, rustfmt 0 diff), test-module-only edits that bind the read amount
+  and assert it is positive. A-authored, awaiting B review.
+  Remote reads and writes this run were App-token only (david-noether[bot]);
+  integration comments posted on PRs #32, #6, #7, #29 and a run record on
+  issue #3; PR #29's 2026-11-13 pinned-revision control comment was
+  superseded by a read-back note naming 8875924faccee44842e4506a5f87b48b4dcae6f9
+  as the head actually merged. NOT RUN: UI evidence (headless host), real
+  network/update behavior, Windows matrix. Nightly usage: Qwen self-hosted
+  route only (one agent session plus deterministic scripts; totals UNKNOWN);
+  no Terra/Sol/GPT from A; no retries after errors; no new schedules.
+- Next action (as of 2026-11-15): B reviews, in this order, PR #34 head
+  df3cc6e6 (R1, update-lane clippy debt), PR #8 new head 18b687c1 (guard fix
+  round, re-review of F-B1..F-B4 at one commit above the reviewed d0fcab13),
+  and PR #31 head 31ccd31e which is CHANGES_REQUESTED (review 5907337502:
+  enrollment-path grant push missing, no R2 tests, no UI evidence) so it must
+  be revised by its author before it can integrate. A's next bounded build is
+  the REMOTE-002 enrollment-path grant follow-up only if #31 stays pending,
+  otherwise OPS-001C integration (ec7c4627) which shares the PR #8 branch
+  (owner decision F-B5 first). Carried forward unchanged: transitive
+  license-audit tooling decision, ZERON_UPDATE_CHECKS in install.sh,
+  openssh-server on A for B's real-sshd re-verification, cron timezone
+  Europe/Madrid (F-2), display path for UI evidence.
+- Owner decisions open: transitive license-audit tooling (cargo-about or
+  cargo-deny) approval or deferral, with three NOASSERTION direct deps now
+  recorded as M4 blockers by the integrated BASE-003 map; display path for UI
+  evidence, or acceptance that BASE-002 visual acceptance stays NOT RUN on this
+  host; set the zeron-worker-a cron timezone to Europe/Madrid (or re-pin the
   expression) so CEST-period and autumn-changeover nights are not silently
   skipped by the A guard (finding F-2, R2 scheduling change — owner-gated);
-  OPERATIONS.md DST wording correction (F-1, R0) once B concurs.
+  F-B5, whether OPS-001A and OPS-001C should share branch
+  task/ops-001a-run-receipt or be split before OPS-001C can integrate.
+  Closed by owner action on 2026-11-14 and verification on 2026-11-15: the
+  review-lane route fix (B re-pointed to direct claude-opus-5-5 review, four
+  reviews landed) and the OPERATIONS.md DST wording question (F-1 was inverted
+  — the prose was already correct, so no doc change is needed).
