@@ -57,9 +57,16 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Queue as of 2026-11-15 (single-integrator mode; A owns this file; supersedes
+- Queue as of 2026-11-16 (single-integrator mode; A owns this file; supersedes
   the per-task queue bullets below, which stay as history):
-  - main = d6c04ec1b83cd9d76fd05157fd39998fe80ffdc6 (pushed, read back).
+  - main = 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b (pushed, read back).
+  - LOCAL-002B integrated 2c014180 (PR #33 head 24bb816e3543ee9e98d05edbdbe6d8015c130645,
+    worker A independent review 5913711042 APPROVED at the exact head): the engine
+    no longer starts agent CLIs for unforced ListModels without consent;
+    scripts/egress-probe and scripts/local-offline-smoke.sh are on main. Retained
+    follow-ups F-A33-1 (daemon CAPTURED_ENV consent variables) and F-A33-2 (two
+    cloned_ref_to_slice_refs warnings in new test code); owner decision open on
+    F-A33-3 (ungated ListCommands) and B's finding 1 (onboarding vendor screen).
   - BASE-001 integrated 97c947bc (approved head c78e2601, review 5907340394).
   - BASE-003 integrated 53e2bc65 (approved head a0ef50a2, review 5907340643);
     B's three non-blocking corrections are an open follow-up docs task, and the
@@ -670,18 +677,61 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   network/update behavior, Windows matrix. Nightly usage: Qwen self-hosted
   route only (one agent session plus deterministic scripts; totals UNKNOWN);
   no Terra/Sol/GPT from A; no retries after errors; no new schedules.
-- Next action (as of 2026-11-15): B reviews, in this order, PR #34 head
+- Nightly run 2026-11-16 (A guard admitted OK, receipt run-2026-11-16, actual
+  start 00:01 UTC, deadline 04:00Z, freeze 03:00Z; integration lease
+  integrate-2026-11-16 opened 00:18:32Z on target refs/heads/main from base
+  3049108a, closed at close). The review lane delivered again: B's own
+  LOCAL-002B candidate (PR #33, B-authored R2, owner-directed 2026-11-14)
+  was reviewed independently by A at the exact head
+  24bb816e3543ee9e98d05edbdbe6d8015c130645 and integrated: main moved
+  3049108a -> 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b (A review
+  5913711042 APPROVED 00:18:36Z, head-pinned). Stack audit before integration:
+  merge-base b880fbef; the branch merge commit 49f645ea carries main code
+  byte-identically (empty diff over crates and apps), so PR #32/#29 copies
+  equal the integrated main copies; B's own change is 9 files, 747 insertions,
+  4 deletions, Cargo.lock untouched. Executed on A's host at the exact head
+  (rustc 1.99.1, --locked, detached review worktree): engine --lib
+  model_catalogs 13 passed / 0 failed (matches B's 13); engine --lib 646
+  passed / 0 failed / 5 ignored in 133 s (matches B's counts); zeron-engine
+  binary and local_smoke example builds exit 0; clippy -p zeron-engine --lib
+  --tests exit 0 warnings-only (33 pre-existing engine warning sites, 2 new —
+  F-A33-2); rustfmt per-file clean on the four changed Rust files; git diff
+  --check clean; merge preview clean (GitHub mergeable=false was stale).
+  scripts/local-offline-smoke.sh on this host: exit 4 SKIP (no unprivileged
+  user namespaces, no strace, no iproute2) — negative control observed, the
+  tooling cannot produce a false PASS here; egress smoke execution and the
+  RED variant are NOT RUN on A's host; UI evidence NOT RUN (headless). After
+  the merge: merged tree bcd84044668c12bad3dc5b838f32dfaea0818c1a equals the
+  merge-tree preview; git diff 24bb816e 2c014180 over the nine reviewed paths
+  is empty, so the unit-tested head is literally the integrated tree; push
+  read back via ls-remote; GitHub confirms merged=true with merge_commit_sha
+  exactly 2c014180. Review record ops/mailboxes/worker-a/reviews/REVIEW-PR33.md;
+  integration comment on PR #33 and run close on issue #3. Remote reads and
+  writes were App-token only (david-noether[bot]); review body corrected
+  post-hoc for one wrong insertion-count digit (672 -> 747) via the API,
+  head and verdict unchanged. Nightly usage: Qwen self-hosted route only
+  (one agent session plus deterministic scripts; totals UNKNOWN); no
+  Terra/Sol/GPT from A; no retries after errors; no new schedules; no budget
+  or policy changes.
+- Next action (as of 2026-11-16): the review queue for worker B is: PR #34 head
   df3cc6e6 (R1, update-lane clippy debt), PR #8 new head 18b687c1 (guard fix
   round, re-review of F-B1..F-B4 at one commit above the reviewed d0fcab13),
-  and PR #31 head 31ccd31e which is CHANGES_REQUESTED (review 5907337502:
+  and PR #31 head 31ccd31e which stays CHANGES_REQUESTED (review 5907337502:
   enrollment-path grant push missing, no R2 tests, no UI evidence) so it must
   be revised by its author before it can integrate. A's next bounded build is
-  the REMOTE-002 enrollment-path grant follow-up only if #31 stays pending,
-  otherwise OPS-001C integration (ec7c4627) which shares the PR #8 branch
-  (owner decision F-B5 first). Carried forward unchanged: transitive
-  license-audit tooling decision, ZERON_UPDATE_CHECKS in install.sh,
+  the REMOTE-002 correction: confine the ScopedRpcService to workspace-scoped
+  methods or gate the non-workspace method family (OpenTerminal,
+  WriteTerminal, RunProjectAction, Create/DeleteWorktree) behind the grant's
+  actual scope, add the enrollment-path grant push, and add R2 tests — this is
+  A-authored R2 and needs B/Sol review before integration. A new small card is
+  warranted for F-A33-1 (forward ZERON_AGENT_DISCOVERY and ZERON_UPDATE_CHECKS
+  through CAPTURED_ENV in apps/zeron/src/daemon.rs, one bounded change).
+  Carried forward unchanged: transitive license-audit tooling decision,
+  ZERON_UPDATE_CHECKS in install.sh (now merged with the CAPTURED_ENV gap),
   openssh-server on A for B's real-sshd re-verification, cron timezone
-  Europe/Madrid (F-2), display path for UI evidence.
+  Europe/Madrid (F-2), display path for UI evidence, F-A33-3 / B's findings 1
+  and 2 (onboarding vendor screen, baked vendor defaults, ungated
+  ListCommands) as owner decisions.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
   cargo-deny) approval or deferral, with three NOASSERTION direct deps now
   recorded as M4 blockers by the integrated BASE-003 map; display path for UI
