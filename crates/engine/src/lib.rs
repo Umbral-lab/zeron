@@ -160,6 +160,9 @@ pub struct EngineCore {
     pub uploads: Uploads,
     pub agent_accounts: AgentAccounts,
     pub harness_updates: harness_updates::HarnessUpdateCoordinator,
+    /// `ZERON_AGENT_DISCOVERY`, read once at assembly: whether model listings
+    /// nobody asked for may launch agent CLIs (docs/reference/updates.md).
+    background_agent_discovery: bool,
     pub device_id: String,
     /// Which app windows are focused (desktop banners hold back while one is).
     pub viewport_focus: desktop_notify::ViewportFocus,
@@ -392,6 +395,7 @@ impl EngineCore {
             uploads,
             agent_accounts,
             harness_updates,
+            background_agent_discovery: model_catalogs::background_discovery_enabled(),
             device_id,
             local_import,
             workspace_scope: profile.scope(),
@@ -536,6 +540,7 @@ impl EngineCore {
         .with_previews(self.previews.clone())
         .with_remote_terminals(self.remote_terminals.clone())
         .with_harness_updates(self.harness_updates.clone())
+        .with_background_agent_discovery(self.background_agent_discovery)
         .with_viewport_focus(self.viewport_focus.clone());
         if let Some(links) = self.links() {
             rpc = rpc.with_links(links);
