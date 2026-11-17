@@ -1,0 +1,13 @@
+# LOCAL-002B — local-first default model listing (integrated)
+
+- Objective: a default install makes no outbound connection attempt the user did not ask for, proven by an automated run with egress blocked that includes child processes (charter "zero unsolicited outbound connections"; acceptance A01/A08, headless half of A02-A04).
+- Acceptance criteria: (1) scripts/local-offline-smoke.sh passes with mock completion, records surviving an engine restart, no double execution, zero egress attempts and the positive control observed; (2) the same smoke fails on the engine without d553cb33; (3) unit tests prove an unforced listing never starts the live probe; (4) worker A reviews the exact head.
+- Non-goals: slash-command discovery, account/sync onboarding UI, vendor default URLs, a persisted settings toggle (B's open findings 1 and 2 stay owner decisions).
+- Risk: R2 (changed when the engine starts third-party agent CLIs). B-authored; worker A independent reviewer.
+- Owner: worker B authored under the owner's 2026-11-14 direction; worker A reviewed and integrated.
+- Components: crates/engine/src/{model_catalogs.rs, rpc.rs, lib.rs}, docs/reference/updates.md, crates/rpc/examples/local_smoke.rs, scripts/egress-probe/*, scripts/local-offline-smoke.sh.
+- Branch and revisions: task/local-002b-offline-default; stacking base 49f645ea (PR #32 e3a7925d + PR #29 8875924f on b880fbef, main code byte-identical); B's own commits d553cb33 and 24bb816e3543ee9e98d05edbdbe6d8015c130645 (head).
+- Verification: A-host head checks (rustc 1.99.1, --locked): model_catalogs 13/0, engine --lib 646/0/5, engine binary + local_smoke builds exit 0, clippy engine lib+tests exit 0 warnings-only, rustfmt per-file clean, git diff --check clean, clean merge preview. NOT RUN on A's host: egress smoke execution and RED variant (no unprivileged user namespaces; honest SKIP exit 4 observed), UI evidence (headless). Full review record: ops/mailboxes/worker-a/reviews/REVIEW-PR33.md.
+- Rollback: revert d553cb33, or set ZERON_AGENT_DISCOVERY=1 (documented in docs/reference/updates.md) without a revert.
+- Status: DONE. Approved head 24bb816e (A review 5913711042), integrated as merge 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b on main 3049108a, pushed and read back; GitHub merged=true with merge_commit_sha exactly 2c014180.
+- Follow-ups (not part of this card's acceptance): F-A33-1 daemon CAPTURED_ENV consent variables (candidate small R1 card), F-A33-2 two cloned_ref_to_slice_refs warnings at crates/engine/src/rpc.rs:5830 and :5844, F-A33-3 ungated ListCommands (owner decision, with B's findings 1 and 2).

@@ -57,6 +57,31 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
+- Queue as of 2026-11-16 (single-integrator mode; A owns this file; supersedes
+  the per-task queue bullets below, which stay as history):
+  - main = 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b (pushed, read back).
+  - LOCAL-002B integrated 2c014180 (PR #33 head 24bb816e3543ee9e98d05edbdbe6d8015c130645,
+    worker A independent review 5913711042 APPROVED at the exact head): the engine
+    no longer starts agent CLIs for unforced ListModels without consent;
+    scripts/egress-probe and scripts/local-offline-smoke.sh are on main. Retained
+    follow-ups F-A33-1 (daemon CAPTURED_ENV consent variables) and F-A33-2 (two
+    cloned_ref_to_slice_refs warnings in new test code); owner decision open on
+    F-A33-3 (ungated ListCommands) and B's finding 1 (onboarding vendor screen).
+  - BASE-001 integrated 97c947bc (approved head c78e2601, review 5907340394).
+  - BASE-003 integrated 53e2bc65 (approved head a0ef50a2, review 5907340643);
+    B's three non-blocking corrections are an open follow-up docs task, and the
+    NOASSERTION direct deps stand as M4 blockers.
+  - OPS-001D integrated 9a77bca0 (approved head e3a7925d, review 5907439210).
+  - OPS-001B / 001B-2 integrated d6c04ec1 (approved head 8875924faccee44842e4506a5f87b48b4dcae6f9,
+    review 5907471708); update consent boundary and local-first default are now
+    on main, verified on the exact merged tree.
+  - OPS-001A review-fix round published, not integrated: head 18b687c1146fb908eea8a872dfe584b9fe06f04e
+    on PR #8 awaiting B re-review (F-B1..F-B4 fixed with red-then-green proof).
+  - OPS-001E open for review: PR #34 head df3cc6e6e5957f9035ad4f6f7ef07bf4bc73a900.
+  - REMOTE-002 CHANGES_REQUESTED: PR #31 head 31ccd31e (review 5907337502), not integrable as-is.
+  - OPS-001C blocked on owner decision F-B5 (branch sharing with OPS-001A).
+  - BASE-002 visual acceptance NOT RUN (headless host, owner decision open).
+
 - Runs 2026-10-30: three A activities on this date — morning bootstrap-baseline
   run (job 4103065fd3d6, 08:37 UTC, bounded R0), owner-directed integration of
   PR #2 (18:02 UTC, merge 660343fe, prompts byte-verified, AGENTS.md identity
@@ -400,28 +425,323 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   Nightly usage: Qwen self-hosted route only (one agent session + bounded
   build/test probes; totals UNKNOWN, never treated as unlimited); no
   Terra/Sol/GPT; no quota error retries; no new schedules.
-- Next action (next scheduled run): worker B/Sol review of PR #29 head
-  8875924faccee44842e4506a5f87b48b4dcae6f9 (13-path bounded OPS-001B consent
-  slice on main 3b99095e; the 2026-11-08 controller in PR #28 now selects
-  exactly this kind of pinned candidate); on approval A integrates under the
-  integration lock and re-verifies the combined tree. If B's review requests
-  changes, fix on task/ops-001b-consent-narrow without re-widening the diff.
-  Optional follow-up (defer until OPS-001B lands): the rustfmt-drift cleanup
-  preserved locally on drift/ops-001b-rustfmt-20261108 as its own bounded
-  R1 formatting task. Second A candidate: the issue #20 acceptance slice the
-  merged CLI does not cover — native enrollment/server-picker UI and
-  server-side per-project workspace-grants design (do not duplicate CLI or
-  transport). Owner decision open for OPS-001B: whether a managed Linux
+- Nightly run 2026-11-09 (A guard admitted OK_LATE_GRACE 00:01:29Z, deadline
+  04:00Z, receipt run-2026-11-09, lease ops-001c-check-plan): first live Sol-
+  window run of the repaired candidate-review-v2 controller. B published a
+  pinned review on PR #29 at 00:05:51Z on exactly head 8875924faccee44842e450
+  6a5f87b48b4dcae6f9: verdict INCOMPLETE, zero findings, no verified defect;
+  zeron-update and local_first suites passed on B's host (log SHA256
+  c5ef37ed..., 1ae68565...), the harness_updates::tests invocation timed out
+  mid-compilation at 46.95 s (exit 124, log SHA256 329b02a3...) — an
+  incomplete check, not a failing assertion — and inspection truncation
+  limited diff coverage. INCOMPLETE is not decisive: B re-selects the same
+  pinned head nightly with preserved compilation fingerprints; PR #29 stays
+  frozen at 8875924f with no A edit until a decisive verdict. New A outcome:
+  PR #30 (base 1b169f16e7234e5d75f6fad945b24bae93043368, head ec7c46277a4853
+  25ea05fe2cd526ebc69be97d71, 3 files 52+/2-, labels r2/ops-001, task record
+  ops/tasks/OPS-001C.md) extends the controller's fixed-argv check plan to
+  ops/worker-a candidates — without it PR #8 (d0fcab13, guard tests 20/20
+  passing since 2026-10-31) was permanently filtered as "no supported
+  executable check plan" and had zero reviews for 9 nights; the worker-b plan
+  argv is byte-pinned unchanged by a new test. A-host evidence: head discovery
+  61 ran / 60 pass / 1 inherited httpx error NOT RUN (log SHA256 7be71fb5...),
+  base main 59 / 58 + same inherited error (log SHA256 38bd2da0...), new argv
+  proven on the real PR #8 tree (20/20 OK at d0fcab13). No crates/apps paths,
+  so candidate-review-v2 product sorting keeps #29 ahead of #30. Prepared but
+  NOT pushed: task/remote-002-workspace-grants (local commit 1c408af8) with
+  ops/tasks/REMOTE-002.md — grounded named decisions for server-side
+  per-project workspace grants (remote ipc bearer is all-or-nothing:
+  crates/rpc/src/ipc_auth.rs, server.rs serve_ws_socket; workspaces already
+  device+folder pairs: crates/rpc/src/lib.rs:132); its implementation PR opens
+  only after #29 is decisive, to avoid out-ranking #29 in B's single nightly
+  selection. UI evidence NOT RUN (headless). Nothing integrated tonight.
+  Nightly usage: Qwen self-hosted route only (one agent session + bounded
+  deterministic probes; totals UNKNOWN, never treated as unlimited); no
+  Terra/Sol/GPT; no error retries; no new schedules.
+- Nightly run 2026-11-10 (A guard admitted OK_LATE_GRACE 00:01:50Z, deadline
+  04:00Z, receipt run-2026-11-10, lease remote-002-grants): REMOTE-002
+  implemented and published as PR #31 (branch task/remote-002-workspace-grants,
+  commits 1c408af8 card + 31ccd31e7d094afc6f6264edc33634000867aaad head, target
+  base main e594db59, 7 code files + 1 task card, GitHub mergeable true).
+  Server-side grants: new crates/rpc/src/grants.rs (owner-only
+  data_dir/ipc-grants.json, per-grant bearer tokens bound to workspace space
+  ids, ipc-token-style 0600/exclusive/symlink-safe writes, corrupt file refuses
+  reads and writes; ScopedRpcService refuses non-granted or unidentifiable
+  workspace calls before the engine); server.rs binds a per-session
+  WorkspaceScope at bearer presentation (main ipc-token keeps full access
+  byte-compatibly) and fails closed with 503 when the grants file exists but
+  cannot be read; engine passes Some(grants_path(data_dir)); ui/ssh call sites
+  pass None; servers CLI gains grant-add / grant-list / grant-revoke operating
+  the same-host engine's grants file. Card D4's enrollment-path push to a
+  remote machine's grants file was NOT built and is recorded as a follow-up
+  task, not folded into acceptance. A-host evidence at the exact head:
+  zeron-rpc --lib 35/35 (incl. scoped-service unit test, wire test
+  grant_bearers_are_served_scoped_over_the_wire, corrupt-grants 503 test);
+  zeron --lib servers:: 11/11 (incl. grants_add_list_and_revoke_keeps_bearers_out_of_listings);
+  zeron --test servers 2 pass + 1 inherited OpenSSH ignore; zeron-rpc --test
+  ssh 1 pass + 1 inherited ignore; clippy -p zeron-rpc --all-targets exit 0;
+  git diff --check clean; Cargo.lock untouched; combined log SHA256
+  293057dd0f9054db07b78c9fd2dae176db5a486813b9c791d4c5be0df57de5da. UI evidence
+  NOT RUN (headless). Second controller night: B's 00:05:41Z pinned review on
+  PR #29 at 8875924f is INCOMPLETE again but decisive-quality evidence: the
+  warm-cache re-run cleared last night's compile timeout and harness_updates::tests
+  now FAILS with a concrete assertion (package_managed_claude_has_manual_guidance_and_cask_channel,
+  crates/engine/src/harness_updates.rs:4339, can_apply_update(ClaudeCode, npm),
+  suite 42/1, log SHA256 6177105c...) while zeron-update and local_first passed
+  (f31501d7..., 4411c0f3...). Reproduction of that failure on A's host: NOT RUN
+  this window. Two consecutive non-decisive reviews on the same pinned head is
+  an escalation signal: #29 is treated as frozen on the A side pending either a
+  dedicated bounded A investigation (next action below) or an owner decision;
+  A posted this status as a PR #29 comment and expects B's next nightly to
+  select #31 as the only crates/-carrying open candidate — if B's pinned logic
+  keeps re-selecting #29 instead, that is a controller behavior fact for B's
+  side to confirm. Nothing integrated (nothing A-authored is approved); PR #31
+  awaits B review of its exact head. Nightly usage: Qwen self-hosted route only
+  (one agent session + bounded deterministic probes; totals UNKNOWN, never
+  treated as unlimited); no Terra/Sol/GPT; no error retries; no new schedules.
+- Next action (next scheduled run): worker B controller review of PR #31 head
+  31ccd31e7d094afc6f6264edc33634000867aaad (the only crates/-carrying open
+  candidate; A-authored R2 needs B review, and Sol-grade review for R2 per
+  AGENTS.md). PR #29 head 8875924f is frozen on the A side after two
+  consecutive INCOMPLETE reviews; the concrete harness_updates assertion
+  (can_apply_update(ClaudeCode, npm) at harness_updates.rs:4339 on B's host)
+  needs either a dedicated bounded A reproduction/investigation task on A's
+  host or an owner decision — do not re-cut #29 silently a third time.
+  Secondary: B controller review of PR #30 head ec7c4627 exact; after it
+  lands, PR #8 becomes an eligible ops-group candidate. If B's pinned-worktree
+  selection keeps re-picking frozen #29 over #31, B should record that
+  controller fact for the owner. Optional follow-up (defer until OPS-001B
+  lands): rustfmt-drift cleanup preserved locally on
+  drift/ops-001b-rustfmt-20261108 as its own bounded R1 formatting task. New
+  follow-up task candidate (not started): REMOTE-002's enrollment-path push of
+  grant intents to a remote machine's grants file. Owner decision open: review
+  lane for docs-only PRs #6/#7, which candidate-review-v2 deliberately skips as
+  a model-budget design (zero reviews for 10 nights).
+  Owner decision open for OPS-001B: whether a managed Linux
   install should set ZERON_UPDATE_CHECKS=1 in edge/src/install.sh (default
   stays local; both switches documented). Still outstanding: B's independent
   reviews of A's PRs #6 (c78e2601), #7 (a0ef50a2), #8 (d0fcab13) — nothing
   A-authored integrates without them. A-host re-verification of B's real-sshd
   tests unlocks once the owner installs openssh-server. B should pin its
   ops/worker-b test discovery root per F-A28-3.
+- Nightly run 2026-11-12 (catch-up execution, no nightly work): the Hermes
+  execution for scheduled instant 2026-11-11T00:00Z started 2026-11-12T08:37Z
+  after host downtime (execution id 2a70793d39d94d4f815c4b940d8e8f55); no
+  guard receipt was recorded for local date 2026-11-11. Tonight's A-guard
+  admission (local date 2026-11-12) is SKIP_WINDOW_CLOSED (elapsed 8.73 h
+  past nominal 00:00Z against the 4 h window plus 15 min grace), receipt
+  run-2026-11-12 finalized 08:47Z with that stop reason. Per 01_BUILDER.md
+  the run was bounded to a checkpoint: remote reads via the App token, local
+  state update, no cargo runs, no integration, no lease opened.
+  Verified remote facts: PR #29 head 8875924f now has four consecutive B
+  INCOMPLETE reviews (2026-11-09/10/11/12; 11-11 review id 5851475201) —
+  B's controller keeps re-selecting the frozen pinned candidate, the exact
+  controller fact A asked B to confirm on 2026-11-10. B-host pattern from
+  B's posted logs: the pinned review worktree does not reuse the cargo
+  target cache across nights; each night recompiles from scratch and a
+  heavy suite times out (11-11 zeron-update exit 124 log c0f5d147...,
+  11-12 local_first exit 124 log afb96983..., while 11-12 zeron-update
+  passed log dc4cfed3... and only the fully warm 11-10 night produced
+  decisive-quality evidence). PR #31 head 31ccd31e is unreviewed for three
+  consecutive nights — the review lane for A-authored R2 work is starved
+  behind frozen #29. PR #30 head ec7c4627 still unreviewed. main unchanged
+  at 479e5a32. All facts posted to issue #3 (comment 6819046769, read back
+  as david-noether[bot]) with a bounded recommendation: B reuses the pinned
+  worktree cache across nights, and the controller skips candidates frozen
+  after consecutive INCOMPLETE verdicts. Nightly usage: Qwen self-hosted
+  route only (one agent session + bounded deterministic reads; totals
+  UNKNOWN); no Terra/Sol/GPT; no cargo runs; no error retries; no new
+  schedules; zero processes owned; no leases opened or left open.
+- Nightly run 2026-11-13 (A guard admitted OK 00:00:40Z, deadline 04:00Z,
+  receipt run-2026-11-13, lease ops001b-4339-investigation, closed at
+  close): bounded A-host investigation of the concrete failure blocking
+  decisive review of PR #29, harness_updates.rs:4339
+  package_managed_claude_has_manual_guidance_and_cask_channel. Outcome:
+  inherited, host-environment-dependent test, not a candidate regression.
+  Evidence (all cargo test --locked -p zeron-engine --lib
+  harness_updates::tests, pinned stable 1.99.1, shared target dir): control
+  at head 8875924f with npm present 43/0 (log SHA256 f5d5b10a...); same head
+  with npm hidden (PATH reduced to cargo bin + /usr/bin:/bin,
+  ZERON_NO_LOGIN_SHELL=1) reproduces B's exact signature — 42 pass / 1 fail,
+  panic at harness_updates.rs:4339:9 (log 1ce3d4b8...); plain main 3b99095e
+  under npm-hidden conditions fails the same test at its pre-candidate line
+  4286, 40 pass / 1 fail (log 858ee4c1...). Diff audit: PR #29's 13-file
+  diff has no hunks in harness_updates/ownership.rs and no changed line
+  touching can_apply_update / update_plan / find_program / npm; git blame:
+  the failing assert is upstream 35a9139a1 (2026-09-27). Mechanism:
+  ownership::package_update resolves the npm binary via find_program (prefix
+  bin, engine PATH, login-shell PATH); no npm means the plan errors and
+  can_apply_update returns false — intentional product behavior, but the
+  unit test asserts true for synthetic paths without controlling host
+  tooling, so it is not hermetic. Published as issue #3 comment 6839653350
+  and PR #29 comment 6839653709 (both read back as david-noether[bot]).
+  New task card ops/tasks/OPS-001D.md (R1 test-hermeticity fix, proposed,
+  not started, must not stack on the frozen #29 head). Controller facts
+  tonight (App-token reads): B's fifth consecutive pinned review of frozen
+  #29 head 8875924f (review 5884048467 00:05:22Z INCOMPLETE) now carries a
+  new blocker in B's own body: the review model call failed — HTTP 400,
+  gpt-6.1-sol not supported when using Codex with a ChatGPT account — so no
+  review reasoning ran; local_first timed out exit 124 mid-compilation with
+  from-scratch compile list (log b68a... zeron-update passed, d77a...
+  local_first timeout); harness_updates::tests NOT RUN on B's side tonight;
+  PR #31 head 31ccd31e and PR #30 head ec7c4627 unreviewed for four and
+  five nights respectively. Posted as issue #3 comment 6839669860.
+  Throwaway worktree /opt/data/home/tmp/wt-1113-base created for the base
+  reproduction and removed after. UI evidence NOT RUN (headless). Nothing
+  integrated. Nightly usage: Qwen self-hosted route only (one agent session
+  + bounded deterministic probes; totals UNKNOWN); no Terra/Sol/GPT from A;
+  no error retries; no new schedules.
+- Nightly run 2026-11-14 (A guard admitted OK 00:00:40Z, deadline 04:00Z,
+  receipt run-2026-11-14, lease ops001d-hermetic, closed at close): built
+  OPS-001D. Branch task/ops-001d-test-hermeticity from main 943de4fe, head
+  e3a7925d, PR #32 (label ops-001) opened and read back as
+  david-noether[bot]. Fix is fixture-based (card option 2): the npm-owned
+  claude case builds a tempdir prefix owning a dummy executable npm in its
+  own bin dir, so the assert resolves through the same find_program path the
+  engine uses; product code untouched (ownership.rs, update_plan,
+  can_apply_update, find_program byte-unchanged), Windows layout covered,
+  plus a deterministic negative (project node_modules copy stays manual).
+  Evidence (cargo test --locked -p zeron-engine, stable 1.99.1, shared
+  target dir, full SHA256s in the PR body): base 943de4fe npm-hidden 40/1
+  reproduces the blocker (5515536f...); head normal 41/0 (549384a2...);
+  head npm-hidden 41/0 final tree (daebdf58...); full engine --lib 640/0/5
+  incl. remote_terminals passing tonight (1c44a33f...); clippy exit 0, zero
+  warnings in harness_updates.rs (aad59870...); rustfmt: two pre-existing
+  drift hunks on base and head, none new. UI NOT RUN (headless). Nothing
+  integrated. Controller facts tonight (App-token reads): sixth consecutive
+  pinned re-cut of frozen #29 head 8875924f, sixth INCOMPLETE (review
+  5899823657); Sol route HTTP 400 second consecutive night; B local_first
+  exit 124 third consecutive cold compile (c8a02c53...), zeron-update
+  passed (517d4201...), harness_updates::tests NOT RUN on B again; PR #31
+  fifth night unreviewed, #30/#8 sixth. Decision note per AGENTS.md posted
+  (issue #3 comment 6868330323): suspend the nightly #29 re-cut until the
+  Sol route is fixed and either npm is provisioned in B's pinned
+  environment or main contains PR #32, which removes the npm dependency
+  from that assertion; suggested review order #32, #31, #30, #8. UI
+  evidence NOT RUN. Nightly usage: Qwen self-hosted route only (one agent
+  session + bounded deterministic probes/reads; totals UNKNOWN); no
+  Terra/Sol/GPT from A; no error retries; no new schedules.
+- Nightly run 2026-11-15 (A guard admitted OK, receipt run-2026-11-15 with
+  actual_start_utc 2026-11-15T00:00:50.536589+00:00, deadline 04:00Z,
+  freeze 03:00Z; finalized at close; integration lease
+  integrate-2026-11-15 opened 00:04:30Z on target refs/heads/main from base
+  b880fbef, closed at close). The review lane reopened overnight: worker B
+  delivered four direct claude-opus-5-5 reviews 21:52-22:27Z on 2026-11-14
+  after the owner re-pointed B's route (issue #3 comment 6885182532), so
+  this run integrated four independently approved candidates instead of
+  building anything new. main moved b880fbef -> 9a77bca0 (PR #32 head
+  e3a7925d, review 5907439210) -> 97c947bc (PR #6 head c78e2601, review
+  5907340394) -> 53e2bc65 (PR #7 head a0ef50a2, review 5907340643) ->
+  d6c04ec1 (PR #29 head 8875924faccee44842e4506a5f87b48b4dcae6f9, review
+  5907471708); each merge verified with git merge-base --is-ancestor on the
+  exact approved head and git diff --quiet proving merged paths byte-identical
+  to that head, and main was pushed and read back by ls-remote as d6c04ec1.
+  PR #29 was merged only after separate-candidate verification on its exact
+  tree aac18024e1fa33d3369f258eba42a71c7647de60 (engine --lib 642/0/5, 134s;
+  harness_updates::tests with npm hidden 43/0, which the OPS-001D fixture made
+  possible; zeron-update lib+tests 21+1/0; rustfmt clean on every PR-authored
+  file), and the merged tree hash equals that candidate tree exactly, so the
+  tested tree is what landed.
+  Guard lane: worker B's findings on PR #8 (review 5907329673 at head d0fcab13)
+  were confirmed by running the reviewed revision first (red: 10 failures on
+  Python 3.13.5, including the autumn clock-change night that produced a
+  05:00Z deadline while still reporting a 4.0-hour cap) and then fixed
+  (green: 32/32): window arithmetic now converts local 01:00 and 05:00 to real
+  UTC instants before min/cap, EARLY dispatch writes no canonical receipt,
+  SKIP receipts are evidence records that assert_can_work refuses, and
+  admission writes are atomic link() creates. Verified values: 2026-10-25
+  deadline 03:00Z (4.0 real hours), 2026-03-29 03:00Z (3.0), 2026-11-15 04:00Z
+  (4.0). F-1 is closed as inverted: docs/OPERATIONS.md already stated the
+  real-elapsed-hour rule and its arithmetic was always correct. F-B5 (OPS-001A
+  sharing a branch with OPS-001C) stays an owner decision. New head published:
+  task/ops-001a-run-receipt 18b687c1146fb908eea8a872dfe584b9fe06f04e, PR #8
+  body updated with exact revisions.
+  Measured baseline failures, recorded as inherited not introduced: cargo
+  clippy --locked -p zeron-update --lib --tests exits 101 with 5 deny-level
+  unused_io_amount errors at b880fbef (crates/update/src/lib.rs:1476/1508/1546/
+  1571/1595), at 53e2bc65 (same sites) and in the merged tree (1522/1554/1592/
+  1617/1641), introduced upstream by a67871f8; whole-crate engine rustfmt drift
+  is 25 hunks at b880fbef and 23 at 53e2bc65 in files no candidate touched
+  (the two pre-existing harness_updates.rs hunks disappeared with PR #29). A
+  bounded follow-up was opened for the clippy debt: card ops/tasks/OPS-001E.md,
+  branch task/ops-001e-update-clippy-debt head df3cc6e6e5957f9035ad4f6f7ef07bf4
+  bc73a900 on base d6c04ec1, PR #34 (label ops-001): red at the exact base tree
+  (exit 101, 5 errors), green after (clippy exit 0 zero warnings, zeron-update
+  21+1 passed, rustfmt 0 diff), test-module-only edits that bind the read amount
+  and assert it is positive. A-authored, awaiting B review.
+  Remote reads and writes this run were App-token only (david-noether[bot]);
+  integration comments posted on PRs #32, #6, #7, #29 and a run record on
+  issue #3; PR #29's 2026-11-13 pinned-revision control comment was
+  superseded by a read-back note naming 8875924faccee44842e4506a5f87b48b4dcae6f9
+  as the head actually merged. NOT RUN: UI evidence (headless host), real
+  network/update behavior, Windows matrix. Nightly usage: Qwen self-hosted
+  route only (one agent session plus deterministic scripts; totals UNKNOWN);
+  no Terra/Sol/GPT from A; no retries after errors; no new schedules.
+- Nightly run 2026-11-16 (A guard admitted OK, receipt run-2026-11-16, actual
+  start 00:01 UTC, deadline 04:00Z, freeze 03:00Z; integration lease
+  integrate-2026-11-16 opened 00:18:32Z on target refs/heads/main from base
+  3049108a, closed at close). The review lane delivered again: B's own
+  LOCAL-002B candidate (PR #33, B-authored R2, owner-directed 2026-11-14)
+  was reviewed independently by A at the exact head
+  24bb816e3543ee9e98d05edbdbe6d8015c130645 and integrated: main moved
+  3049108a -> 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b (A review
+  5913711042 APPROVED 00:18:36Z, head-pinned). Stack audit before integration:
+  merge-base b880fbef; the branch merge commit 49f645ea carries main code
+  byte-identically (empty diff over crates and apps), so PR #32/#29 copies
+  equal the integrated main copies; B's own change is 9 files, 747 insertions,
+  4 deletions, Cargo.lock untouched. Executed on A's host at the exact head
+  (rustc 1.99.1, --locked, detached review worktree): engine --lib
+  model_catalogs 13 passed / 0 failed (matches B's 13); engine --lib 646
+  passed / 0 failed / 5 ignored in 133 s (matches B's counts); zeron-engine
+  binary and local_smoke example builds exit 0; clippy -p zeron-engine --lib
+  --tests exit 0 warnings-only (33 pre-existing engine warning sites, 2 new —
+  F-A33-2); rustfmt per-file clean on the four changed Rust files; git diff
+  --check clean; merge preview clean (GitHub mergeable=false was stale).
+  scripts/local-offline-smoke.sh on this host: exit 4 SKIP (no unprivileged
+  user namespaces, no strace, no iproute2) — negative control observed, the
+  tooling cannot produce a false PASS here; egress smoke execution and the
+  RED variant are NOT RUN on A's host; UI evidence NOT RUN (headless). After
+  the merge: merged tree bcd84044668c12bad3dc5b838f32dfaea0818c1a equals the
+  merge-tree preview; git diff 24bb816e 2c014180 over the nine reviewed paths
+  is empty, so the unit-tested head is literally the integrated tree; push
+  read back via ls-remote; GitHub confirms merged=true with merge_commit_sha
+  exactly 2c014180. Review record ops/mailboxes/worker-a/reviews/REVIEW-PR33.md;
+  integration comment on PR #33 and run close on issue #3. Remote reads and
+  writes were App-token only (david-noether[bot]); review body corrected
+  post-hoc for one wrong insertion-count digit (672 -> 747) via the API,
+  head and verdict unchanged. Nightly usage: Qwen self-hosted route only
+  (one agent session plus deterministic scripts; totals UNKNOWN); no
+  Terra/Sol/GPT from A; no retries after errors; no new schedules; no budget
+  or policy changes.
+- Next action (as of 2026-11-16): the review queue for worker B is: PR #34 head
+  df3cc6e6 (R1, update-lane clippy debt), PR #8 new head 18b687c1 (guard fix
+  round, re-review of F-B1..F-B4 at one commit above the reviewed d0fcab13),
+  and PR #31 head 31ccd31e which stays CHANGES_REQUESTED (review 5907337502:
+  enrollment-path grant push missing, no R2 tests, no UI evidence) so it must
+  be revised by its author before it can integrate. A's next bounded build is
+  the REMOTE-002 correction: confine the ScopedRpcService to workspace-scoped
+  methods or gate the non-workspace method family (OpenTerminal,
+  WriteTerminal, RunProjectAction, Create/DeleteWorktree) behind the grant's
+  actual scope, add the enrollment-path grant push, and add R2 tests — this is
+  A-authored R2 and needs B/Sol review before integration. A new small card is
+  warranted for F-A33-1 (forward ZERON_AGENT_DISCOVERY and ZERON_UPDATE_CHECKS
+  through CAPTURED_ENV in apps/zeron/src/daemon.rs, one bounded change).
+  Carried forward unchanged: transitive license-audit tooling decision,
+  ZERON_UPDATE_CHECKS in install.sh (now merged with the CAPTURED_ENV gap),
+  openssh-server on A for B's real-sshd re-verification, cron timezone
+  Europe/Madrid (F-2), display path for UI evidence, F-A33-3 / B's findings 1
+  and 2 (onboarding vendor screen, baked vendor defaults, ungated
+  ListCommands) as owner decisions.
 - Owner decisions open: transitive license-audit tooling (cargo-about or
-  cargo-deny) approval or deferral; display path for UI evidence, or
-  acceptance that BASE-002 visual acceptance stays NOT RUN on this host;
-  set the zeron-worker-a cron timezone to Europe/Madrid (or re-pin the
+  cargo-deny) approval or deferral, with three NOASSERTION direct deps now
+  recorded as M4 blockers by the integrated BASE-003 map; display path for UI
+  evidence, or acceptance that BASE-002 visual acceptance stays NOT RUN on this
+  host; set the zeron-worker-a cron timezone to Europe/Madrid (or re-pin the
   expression) so CEST-period and autumn-changeover nights are not silently
   skipped by the A guard (finding F-2, R2 scheduling change — owner-gated);
-  OPERATIONS.md DST wording correction (F-1, R0) once B concurs.
+  F-B5, whether OPS-001A and OPS-001C should share branch
+  task/ops-001a-run-receipt or be split before OPS-001C can integrate.
+  Closed by owner action on 2026-11-14 and verification on 2026-11-15: the
+  review-lane route fix (B re-pointed to direct claude-opus-5-5 review, four
+  reviews landed) and the OPERATIONS.md DST wording question (F-1 was inverted
+  — the prose was already correct, so no doc change is needed).

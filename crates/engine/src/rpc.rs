@@ -794,6 +794,9 @@ pub struct EngineRpc {
     links: Option<std::sync::Arc<LinkCache>>,
     updater: Option<zeron_update::Updater>,
     harness_updates: Option<crate::harness_updates::HarnessUpdateCoordinator>,
+    /// Consent for unrequested model listings to launch agent CLIs
+    /// (`ZERON_AGENT_DISCOVERY`), captured at engine assembly. Off by default.
+    background_agent_discovery: bool,
     local_import: Option<crate::local_import::LocalImporter>,
     /// Cloud runner only: vault grants (ListGithubRepos, credentialed CloneRepo).
     credentials: Option<crate::credentials::CredentialBroker>,
@@ -855,6 +858,7 @@ impl EngineRpc {
             links: None,
             updater: None,
             harness_updates: None,
+            background_agent_discovery: false,
             local_import: None,
             credentials: None,
             viewport_focus: Default::default(),
@@ -905,6 +909,14 @@ impl EngineRpc {
         coordinator: crate::harness_updates::HarnessUpdateCoordinator,
     ) -> Self {
         self.harness_updates = Some(coordinator);
+        self
+    }
+
+    /// Let model listings nobody asked for launch agent CLIs for live
+    /// discovery. Without it only a forced `ListModels` (the user's request)
+    /// starts one.
+    pub fn with_background_agent_discovery(mut self, consent: bool) -> Self {
+        self.background_agent_discovery = consent;
         self
     }
 
@@ -2677,6 +2689,10 @@ impl RpcService for EngineRpc {
                     self.repos.data_dir(),
                     harness,
                     p.force,
+                    crate::model_catalogs::LiveDiscovery::resolve(
+                        p.force,
+                        self.background_agent_discovery,
+                    ),
                     Some(lease),
                 )
                 .await
