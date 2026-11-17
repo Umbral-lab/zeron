@@ -90,3 +90,31 @@ Implementation resolution (worker A, run-2026-11-10, opened as a reviewable PR):
   was NOT built in this slice; it is a follow-up slice needing its own task.
 - Acceptance status: criteria 1-3 have executed test evidence on the PR head
   (see the PR body); criterion 4 awaits worker B review of the exact head.
+
+Review round (worker A, run-2026-11-17, head 9487e764, addresses B's
+CHANGES_REQUESTED review 5907337502 of head 31ccd31e):
+- F-B1 (blocking) resolved: scoped sessions are now default-deny.
+  scoped_method_policy in crates/rpc/src/grants.rs is the complete allow-list
+  — the ten space-id-checked workspace file methods plus EngineInfo/EngineReady
+  read-only probes. Terminals, project actions, worktree commands, chat/run
+  starts, git/agent-login/auth/cloud methods and any method this build does
+  not know are refused with a capability error before the engine sees them.
+  Wire tests prove refusal of OpenTerminal, RunProjectAction, QueueMessage and
+  a method added later — default-deny proven, not enumerated. Executing
+  methods are not grantable in this slice; scoping them is a follow-up.
+- F-B2 documented: grant-add and grant-revoke CLI outputs now carry a note
+  that revocation applies to new sessions only (grants are read once per
+  handshake), and the servers.rs module docs state the exact boundary.
+- F-A17-1 (new finding by A on the merged tree): serve_ws_listener treated an
+  ABSENT grants file as unreadable, so a default install — grants path wired,
+  no grant-add ever run — refused its own IPC sessions with 503. The
+  background_engine integration test fails at head 31ccd31e when run with
+  fresh build artifacts. Fail closed now applies only when the file exists but
+  cannot be understood; an_absent_grants_file_is_the_valid_pre_grant_state
+  locks the distinction over the wire. Evidence note: the 2026-11-10 test run
+  passed because the shared CARGO_TARGET_DIR reused a zeron-rpc artifact
+  compiled before serve_ipc wired the grants path; the final verification run
+  of this round cleaned zeron-rpc/zeron-engine/zeron artifacts first.
+- D3 refinement: "file present but unreadable -> 503 for every session";
+  "file absent -> normal full-access main-token behavior" (the byte-compatible
+  default the card intended).

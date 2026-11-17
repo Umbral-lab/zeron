@@ -561,6 +561,7 @@ async fn run_grants(data_dir: &Path, op: GrantsOp<'_>) -> anyhow::Result<()> {
                 "spaceIds": record.space_ids,
                 "tokenHint": hint(&record.token),
                 "token": created,
+                "note": "bearer may call only the workspace file methods of these spaces (plus read-only engine probes); terminals, project actions and everything else are refused",
             }))
         }
         GrantsOp::List => {
@@ -579,6 +580,7 @@ async fn run_grants(data_dir: &Path, op: GrantsOp<'_>) -> anyhow::Result<()> {
             "status": if revoked > 0 { "grantsRevoked" } else { "noop" },
             "requested": names,
             "revoked": revoked,
+            "note": "revocation applies to new sessions: a grant session already connected keeps its scope until it reconnects",
         })),
     }
 }
