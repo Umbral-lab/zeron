@@ -713,7 +713,66 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   (one agent session plus deterministic scripts; totals UNKNOWN); no
   Terra/Sol/GPT from A; no retries after errors; no new schedules; no budget
   or policy changes.
-- Next action (as of 2026-11-16): the review queue for worker B is: PR #34 head
+- Nightly run 2026-11-17 (A guard admitted OK, receipt run-2026-11-17, actual
+  start 00:00:51Z, deadline 04:00Z, freeze 03:00Z; lease
+  remote-002-review-round-2026-11-17 opened ~00:10Z on
+  refs/heads/task/remote-002-workspace-grants from base 31ccd31e and closed at
+  00:26Z; refs/heads/main NOT touched — no independently approved candidate
+  existed to integrate). Primary outcome: PR #31 review round delivered. Branch
+  31ccd31e -> 33fca20c (merge main dff88c22) -> 9487e764 -> 4b255aef (new
+  exact head; ls-remote read back). F-B1 from B's CHANGES_REQUESTED review
+  5907337502 resolved: ScopedRpcService is now default-deny via
+  scoped_method_policy (crates/rpc/src/grants.rs) — allow-list is the ten
+  space-id-checked workspace file methods plus EngineInfo/EngineReady;
+  OpenTerminal, WriteTerminal, RunProjectAction, Create/DeleteWorktree,
+  QueueMessage, StartAgentLogin, git/auth/cloud methods and any unknown or
+  later method are refused with a capability error before the engine sees
+  them; wire tests refuse OpenTerminal, RunProjectAction, QueueMessage and
+  SomeMethodAddedLater over the real transport (default-deny proven, not
+  enumerated), proving the refusal of the four method classes B listed (chat
+  starts via QueueMessage; WriteTerminal and Create/DeleteWorktree proven in
+  the unit suite). F-B2 documented in the grant-add/grant-revoke CLI note
+  strings and servers.rs docs. New finding F-A17-1 (A, on the merged tree):
+  serve_ws_listener conflated an absent grants file with an unreadable one, so
+  a default install refused its own IPC sessions (503); zeron --test
+  background_engine fails deterministically at 31ccd31e with clean artifacts
+  (reproduced in new review worktree zeron-wt/pr31-head). Fixed: fail-closed
+  only for a file that exists but cannot be understood; new wire test
+  an_absent_grants_file_is_the_valid_pre_grant_state locks the distinction.
+  Evidence-contamination lesson: the 2026-11-10 rpc/zeron runs passed because
+  the shared CARGO_TARGET_DIR reused a zeron-rpc artifact compiled before
+  serve_ipc wired the grants path; final verification now cleans the touched
+  crates (zeron-rpc, zeron-engine, zeron) first. Executed at the head tree
+  (rustc 1.99.1, --locked): zeron-rpc --lib 36/0, --test ssh 13/0/1 ignored
+  (inherited gate), --test device_room 1/0; zeron --no-default-features 14/0
+  lib, 8/0/1 --test servers, 1/0 --test background_engine, 1/0, 2/0/1 — all
+  exit 0; zeron-engine --lib 646/0/5 in 136 s; clippy -p zeron-rpc --lib
+  --tests exit 0 (8 inherited style warnings, zero in grants.rs); git diff
+  --check clean; Cargo.lock untouched; touched-file rustfmt only (repo-wide
+  fmt --check shows 599 pre-existing upstream diffs, deliberately untouched).
+  NOT RUN: UI evidence (headless host), real enrolled-machine grant
+  operations. PR #31 body rewritten with exact revisions and evidence;
+  evidence comment 6933711482; run close on issue #3 comment 6933711789.
+  Remote reads and writes were App-token only (david-noether[bot]); pushes
+  31ccd31e..4b255aef; no personal token; no tokens in remote URLs. Nightly
+  usage: Qwen self-hosted route only (one agent session plus deterministic
+  scripts; totals UNKNOWN); no Terra/Sol/GPT from A; no retries after errors;
+  no new schedules; no budget or policy changes.
+- Next action (as of 2026-11-17): worker B's queue is: re-review PR #31 head
+  4b255aef8760d9e31cf25c68f66b892c988d8c09 (B stated they will run the rpc and
+  zeron suites themselves before approving — the default-deny implementation
+  and the F-A17-1 fail-open fix are the two areas to probe), then PR #34 head
+  df3cc6e6 (R1) and re-review PR #8 head 18b687c1. A's next bounded build, if
+  B's re-review requests changes or lands: the REMOTE-002 follow-up slice for
+  enrollment-path grant push (D4 follow-up, R2, new card before code), and the
+  small F-A33-1 card (forward ZERON_AGENT_DISCOVERY and ZERON_UPDATE_CHECKS
+  through CAPTURED_ENV in apps/zeron/src/daemon.rs) awaiting owner go-ahead.
+  Carried forward unchanged: transitive license-audit tooling decision,
+  openssh-server on A for B's real-sshd re-verification, cron timezone
+  Europe/Madrid (F-2), display path for UI evidence, F-A33-3 / B's findings 1
+  and 2 (onboarding vendor screen, baked vendor defaults, ungated
+  ListCommands) as owner decisions.
+- Next action (superseded, as of 2026-11-16): the review queue for worker B is: PR #34 head
   df3cc6e6 (R1, update-lane clippy debt), PR #8 new head 18b687c1 (guard fix
   round, re-review of F-B1..F-B4 at one commit above the reviewed d0fcab13),
   and PR #31 head 31ccd31e which stays CHANGES_REQUESTED (review 5907337502:
