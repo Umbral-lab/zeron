@@ -933,7 +933,10 @@ mod tests {
             },
         )
         .unwrap();
-        let url = format!("ws://127.0.0.1:{}", serve_test_with_grants(&main, &grants).await);
+        let url = format!(
+            "ws://127.0.0.1:{}",
+            serve_test_with_grants(&main, &grants).await
+        );
 
         // The grant bearer is a real session…
         let scoped = connect_ws(&url, Some(&grant_token)).await.unwrap();
@@ -960,15 +963,35 @@ mod tests {
         };
         assert!(error.contains("not authorized"), "{error}");
 
-        // Non-workspace methods are not narrowed by the grant.
-        assert_eq!(
-            scoped.call("Echo", serde_json::json!("x")).await.unwrap(),
-            serde_json::json!("x")
-        );
+        // Default-deny (finding F-B1): a grant bearer is refused everything
+        // outside the allow-list, proven over the real wire — executing
+        // methods, chat sends, and a method the fixture has never heard of.
+        for method in [
+            "Echo",
+            methods::OPEN_TERMINAL,
+            methods::RUN_PROJECT_ACTION,
+            methods::QUEUE_MESSAGE,
+            "SomeMethodAddedLater",
+        ] {
+            match scoped
+                .call(method, serde_json::json!({"chatId": "c"}))
+                .await
+            {
+                Ok(reply) => panic!("default-deny leaked {method} over the wire: {reply:?}"),
+                Err(error) => assert!(
+                    error.to_string().contains("does not authorize"),
+                    "{method}: {error}"
+                ),
+            }
+        }
 
         // The main ipc-token still reaches everything, byte-compatible with
         // pre-grant behavior even while a grants file is present.
         let full = connect_ws(&url, Some(&main)).await.unwrap();
+        assert_eq!(
+            full.call("Echo", serde_json::json!("x")).await.unwrap(),
+            serde_json::json!("x")
+        );
         assert_eq!(
             full.call(
                 methods::LIST_WORKSPACE_DIRECTORY,
@@ -1006,6 +1029,28 @@ mod tests {
             handshake_status(port, &[("authorization", &format!("Bearer {main}"))]).await,
             Some(503),
             "a corrupt grants file must not serve any session"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_absent_grants_file_is_the_valid_pre_grant_state() {
+        let dir = tempfile::tempdir().unwrap();
+        // The grants path is wired on every engine start, but no `grant-add`
+        // has ever run: the file simply does not exist. This is NOT a failure
+        // (finding F-A17-1: conflating it with a corrupt file made a default
+        // install refuse its own IPC sessions).
+        let grants = grants::grants_path(dir.path());
+        let main = ipc_auth::generate_token().unwrap();
+        let port = serve_test_with_grants(&main, &grants).await;
+
+        let url = format!("ws://127.0.0.1:{port}/rpc");
+        let client = connect_ws(&url, Some(&main)).await.unwrap();
+        assert_eq!(
+            client
+                .call("Echo", serde_json::json!("pre-grant"))
+                .await
+                .unwrap(),
+            serde_json::json!("pre-grant")
         );
     }
 

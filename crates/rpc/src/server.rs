@@ -191,10 +191,12 @@ async fn serve_ws_socket(
     //
     // Bearer resolution: the main ipc-token grants full access, exactly as
     // before grants existed. A token from `{data_dir}/ipc-grants.json`
-    // (`zeron server grant-add`) is served scoped — the session's service is
-    // wrapped in a `ScopedRpcService` that refuses workspace calls outside the
-    // grant's spaces before the engine sees them. The grants file is read once
-    // per handshake; a file that fails to parse serves no session (503).
+    // (`zeron server grant-add`) is served scoped and default-deny — the
+    // session's service is wrapped in a `ScopedRpcService` that refuses every
+    // method outside the workspace-file allow-list before the engine sees it.
+    // The grants file is read once per handshake; no file is the valid
+    // pre-grant state, while a file that exists but fails to parse serves no
+    // session (503).
     let grants: Option<crate::grants::GrantsFile> = match grants_path.as_deref() {
         Some(path) => match crate::grants::read_grants(path) {
             Ok(grants) => grants,
@@ -205,7 +207,15 @@ async fn serve_ws_socket(
         },
         None => None,
     };
-    let grants_failed = grants_path.is_some() && grants.is_none();
+    // Fail closed only for a grants file that EXISTS but cannot be understood
+    // (corrupt or unsupported). No file at all is the valid pre-grant state:
+    // the engine still serves main-bearer sessions. Conflating the two made a
+    // default install unreachable over IPC — review finding F-A17-1 on the
+    // REMOTE-002 wire test background_engine_serves_its_port_and_stops_on_request.
+    let grants_failed = match grants_path.as_deref() {
+        Some(path) => path.exists() && grants.is_none(),
+        None => false,
+    };
     let session_scope: std::sync::Mutex<Option<Option<crate::grants::WorkspaceScope>>> =
         std::sync::Mutex::new(None);
     #[allow(clippy::result_large_err)]
@@ -282,11 +292,7 @@ async fn serve_ws_socket(
             return;
         }
     };
-    let scope = session_scope
-        .lock()
-        .unwrap()
-        .take()
-        .flatten();
+    let scope = session_scope.lock().unwrap().take().flatten();
     let service: Arc<dyn RpcService> = match scope {
         Some(scope) => Arc::new(crate::grants::ScopedRpcService::new(service, scope)),
         None => service,

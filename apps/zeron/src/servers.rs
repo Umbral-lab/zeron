@@ -2,9 +2,13 @@
 //! startup never reads this registry or connects to an enrolled machine.
 //!
 //! The `grant-*` commands maintain the engine's per-project workspace grants
-//! (`{data_dir}/ipc-grants.json`): a grant bearer is served scoped, so a
-//! remote session holding it can only reach the workspace spaces the grant
-//! names — enforced by the remote engine, not by the client (REMOTE-002).
+//! (`{data_dir}/ipc-grants.json`): a grant bearer is served scoped and
+//! default-deny — the remote engine admits only the workspace file methods
+//! for the spaces the grant names (plus read-only engine probes) and refuses
+//! every other method, terminals and project actions included
+//! (crates/rpc/src/grants.rs, REMOTE-002). Enforcement lives on the engine,
+//! not in the client. Revoking a grant affects new sessions: an already
+//! connected grant session keeps its scope until it reconnects.
 
 use std::fs;
 use std::io::{Read, Write};

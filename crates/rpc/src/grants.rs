@@ -20,6 +20,14 @@
 //! Identity model: the space id already addresses the (device, folder) pair
 //! from the workspace doc (see the Spaces registry in [`crate`]); the grant
 //! allow-set is exactly a set of those ids as this engine knows them.
+//!
+//! Scoped sessions are default-deny (review finding F-B1 on PR #31): the
+//! wrapper admits only methods in [`scoped_method_policy`]'s allow-list —
+//! the workspace file family (each call must name a granted space id) plus
+//! two read-only session probes. Everything else, including terminal,
+//! project-action, chat, git, agent-login, auth and cloud methods — and any
+//! method added later — is refused with a capability error before the engine
+//! sees it. A grant is therefore exactly "these workspaces, no execution".
 
 use std::collections::HashSet;
 use std::io::{self, Write};
@@ -51,7 +59,9 @@ fn name_ok(name: &str) -> bool {
 }
 
 fn space_ok(space_id: &str) -> bool {
-    !space_id.is_empty() && space_id.len() <= SPACE_MAX && space_id.bytes().all(|b| !b.is_ascii_control())
+    !space_id.is_empty()
+        && space_id.len() <= SPACE_MAX
+        && space_id.bytes().all(|b| !b.is_ascii_control())
 }
 
 /// One entry of the grants file: a secret bearer plus the spaces it may touch.
@@ -76,38 +86,63 @@ impl GrantsFile {
     /// as unguessable as the ipc-token), spaces within bounds, no duplicates.
     pub fn validate(&self) -> io::Result<()> {
         if self.format_version != GRANTS_FORMAT_VERSION {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, 
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
                 "unsupported ipc-grants format version",
             ));
         }
         if self.grants.len() > GRANTS_MAX {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "too many grants"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "too many grants",
+            ));
         }
         let mut names = HashSet::new();
         let mut tokens = HashSet::new();
         for grant in &self.grants {
             if !name_ok(&grant.name) {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid grant name"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "invalid grant name",
+                ));
             }
             if !names.insert(grant.name.as_str()) {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "duplicate grant name"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "duplicate grant name",
+                ));
             }
             if grant.token.len() != 64 || !grant.token.bytes().all(|b| b.is_ascii_hexdigit()) {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "grant token must be 64 hex chars"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "grant token must be 64 hex chars",
+                ));
             }
             if !tokens.insert(grant.token.as_str()) {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "duplicate grant token"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "duplicate grant token",
+                ));
             }
             if grant.space_ids.len() > SPACES_MAX {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "too many granted spaces"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "too many granted spaces",
+                ));
             }
             let mut spaces = HashSet::new();
             for space_id in &grant.space_ids {
                 if !space_ok(space_id) {
-                    return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid granted space id"));
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "invalid granted space id",
+                    ));
                 }
                 if !spaces.insert(space_id.as_str()) {
-                    return Err(io::Error::new(io::ErrorKind::InvalidInput, "duplicate granted space id"));
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "duplicate granted space id",
+                    ));
                 }
             }
         }
@@ -130,10 +165,17 @@ pub fn read_grants(path: &Path) -> io::Result<Option<GrantsFile>> {
         Err(err) => return Err(err),
     };
     if raw.len() as u64 > FILE_LIMIT {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "ipc-grants file is too large"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ipc-grants file is too large",
+        ));
     }
-    let file: GrantsFile = serde_json::from_slice(&raw)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ipc-grants JSON: {e}")))?;
+    let file: GrantsFile = serde_json::from_slice(&raw).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid ipc-grants JSON: {e}"),
+        )
+    })?;
     file.validate()?;
     Ok(Some(file))
 }
@@ -214,29 +256,49 @@ pub fn resolve_bearer(
     Err(None)
 }
 
-/// Workspace-targeted methods whose params carry a [`zeron_proto::WorkspaceTarget`]
-/// (chatId / spaceId / checkoutPath). Server-side grants understand space ids;
-/// a scoped session calling one of these with any other target form is refused.
-fn workspace_targeted(method: &str) -> bool {
-    matches!(
-        method,
-        methods::LIST_WORKSPACE_DIRECTORY
-            | methods::SEARCH_WORKSPACE_FILES
-            | methods::WARM_WORKSPACE_SEARCH
-            | methods::SEARCH_WORKSPACE_CONTENT
-            | methods::READ_WORKSPACE_IMAGE
-            | methods::READ_WORKSPACE_FILE
-            | methods::MOVE_WORKSPACE_ENTRY
-            | methods::DELETE_WORKSPACE_ENTRY
-            | methods::WRITE_WORKSPACE_FILE
-            | methods::WATCH_WORKSPACE_FILES
-    )
+/// What a scoped (grant) session may call. Default-deny: anything not
+/// classified here is refused [`ScopedRpcService`] before the engine runs it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScopedMethodPolicy {
+    /// A workspace call carrying a flattened [`zeron_proto::WorkspaceTarget`]
+    /// (chatId / spaceId / checkoutPath). Admitted only when the params name
+    /// a space id in the grant's allow-set; any other target form is refused.
+    SpaceTargeted,
+    /// A read-only, no-params session probe safe for any scoped session.
+    SessionSafe,
+    /// Everything else — executing, chat-bound, git-bound, auth, cloud,
+    /// vendor-facing methods, and any method this build does not know.
+    Refused,
 }
 
-/// A per-connection service wrapper enforcing a [`WorkspaceScope`]. Non-workspace
-/// methods pass through untouched (the grant narrows project workspaces, not the
-/// engine's session/chat surface); workspace calls are admitted only for
-/// space ids in the allow-set.
+/// The complete allow-list of a scoped session (finding F-B1: the boundary
+/// must be an explicit allow-list, not a blocklist of known-dangerous names).
+/// The workspace file family plus two read-only probes; every new method
+/// starts life refused until it is deliberately added here with a space check
+/// where it takes a target. Executing methods (terminals, project actions,
+/// worktree commands, chat/run starts) are deliberately NOT grantable in this
+/// slice — see ops/tasks/REMOTE-002.md follow-ups.
+pub fn scoped_method_policy(method: &str) -> ScopedMethodPolicy {
+    match method {
+        methods::LIST_WORKSPACE_DIRECTORY
+        | methods::SEARCH_WORKSPACE_FILES
+        | methods::WARM_WORKSPACE_SEARCH
+        | methods::SEARCH_WORKSPACE_CONTENT
+        | methods::READ_WORKSPACE_IMAGE
+        | methods::READ_WORKSPACE_FILE
+        | methods::MOVE_WORKSPACE_ENTRY
+        | methods::DELETE_WORKSPACE_ENTRY
+        | methods::WRITE_WORKSPACE_FILE
+        | methods::WATCH_WORKSPACE_FILES => ScopedMethodPolicy::SpaceTargeted,
+        methods::ENGINE_INFO | methods::ENGINE_READY => ScopedMethodPolicy::SessionSafe,
+        _ => ScopedMethodPolicy::Refused,
+    }
+}
+
+/// A per-connection service wrapper enforcing a [`WorkspaceScope`] with a
+/// default-deny allow-list ([`scoped_method_policy`]): workspace calls are
+/// admitted only for space ids in the allow-set, the read-only session probes
+/// pass, and everything else is refused before the engine sees it.
 pub struct ScopedRpcService {
     inner: std::sync::Arc<dyn RpcService>,
     scope: WorkspaceScope,
@@ -251,33 +313,47 @@ impl ScopedRpcService {
 #[async_trait]
 impl RpcService for ScopedRpcService {
     async fn handle(&self, method: &str, params: serde_json::Value) -> Result<RpcReply, RpcError> {
-        if workspace_targeted(method) {
-            let space_id = params.get("spaceId").and_then(|v| v.as_str());
-            match space_id {
-                Some(space_id) if self.scope.space_ids.contains(space_id) => {}
-                Some(space_id) => {
-                    tracing::warn!(
-                        grant = %self.scope.grant_name,
-                        method,
-                        space_id,
-                        "rpc: refusing a workspace call outside the grant's spaces"
-                    );
-                    return Err(RpcError::Capability(format!(
-                        "grant {:?} is not authorized for this workspace",
-                        self.scope.grant_name
-                    )));
+        match scoped_method_policy(method) {
+            ScopedMethodPolicy::SessionSafe => {}
+            ScopedMethodPolicy::SpaceTargeted => {
+                let space_id = params.get("spaceId").and_then(|v| v.as_str());
+                match space_id {
+                    Some(space_id) if self.scope.space_ids.contains(space_id) => {}
+                    Some(space_id) => {
+                        tracing::warn!(
+                            grant = %self.scope.grant_name,
+                            method,
+                            space_id,
+                            "rpc: refusing a workspace call outside the grant's spaces"
+                        );
+                        return Err(RpcError::Capability(format!(
+                            "grant {:?} is not authorized for this workspace",
+                            self.scope.grant_name
+                        )));
+                    }
+                    None => {
+                        tracing::warn!(
+                            grant = %self.scope.grant_name,
+                            method,
+                            "rpc: refusing a workspace call the grant cannot identify"
+                        );
+                        return Err(RpcError::Capability(format!(
+                            "grant {:?} only addresses workspace calls by space id",
+                            self.scope.grant_name
+                        )));
+                    }
                 }
-                None => {
-                    tracing::warn!(
-                        grant = %self.scope.grant_name,
-                        method,
-                        "rpc: refusing a workspace call the grant cannot identify"
-                    );
-                    return Err(RpcError::Capability(format!(
-                        "grant {:?} only addresses workspace calls by space id",
-                        self.scope.grant_name
-                    )));
-                }
+            }
+            ScopedMethodPolicy::Refused => {
+                tracing::warn!(
+                    grant = %self.scope.grant_name,
+                    method,
+                    "rpc: refusing a method outside the grant's allow-list"
+                );
+                return Err(RpcError::Capability(format!(
+                    "grant {:?} does not authorize method {method}",
+                    self.scope.grant_name
+                )));
             }
         }
         self.inner.handle(method, params).await
@@ -359,8 +435,14 @@ mod tests {
         let bearer = |token: &str| format!("Bearer {token}");
 
         // Main bearer: full access, exactly as before grants existed.
-        assert_eq!(resolve_bearer(Some(&grants), &main, bearer(&main).as_bytes()), Ok(None));
-        assert_eq!(resolve_bearer(None, &main, bearer(&main).as_bytes()), Ok(None));
+        assert_eq!(
+            resolve_bearer(Some(&grants), &main, bearer(&main).as_bytes()),
+            Ok(None)
+        );
+        assert_eq!(
+            resolve_bearer(None, &main, bearer(&main).as_bytes()),
+            Ok(None)
+        );
 
         // Grant bearer: scoped to its spaces.
         let scoped = resolve_bearer(Some(&grants), &main, bearer(&grant_token).as_bytes())
@@ -396,7 +478,9 @@ mod tests {
             ) -> Result<RpcReply, RpcError> {
                 // A value-returning stand-in for the engine's workspace
                 // dispatch: a granted call reaches here and echoes its target.
-                RpcReply::value(&serde_json::json!({"method": method, "space": params.get("spaceId")}))
+                RpcReply::value(
+                    &serde_json::json!({"method": method, "space": params.get("spaceId")}),
+                )
             }
         }
         let scope = WorkspaceScope {
@@ -423,13 +507,18 @@ mod tests {
             )
             .await;
         match refused {
-            Err(RpcError::Capability(message)) => assert!(message.contains("not authorized"), "{message}"),
+            Err(RpcError::Capability(message)) => {
+                assert!(message.contains("not authorized"), "{message}")
+            }
             Ok(_) => panic!("a non-granted space must be refused server-side"),
             Err(error) => panic!("expected a capability refusal, got {error}"),
         }
 
         let refused = scoped
-            .handle(methods::WRITE_WORKSPACE_FILE, serde_json::json!({"chatId": "c"}))
+            .handle(
+                methods::WRITE_WORKSPACE_FILE,
+                serde_json::json!({"chatId": "c"}),
+            )
             .await;
         match refused {
             Err(RpcError::Capability(_)) => {}
@@ -437,13 +526,43 @@ mod tests {
             Err(error) => panic!("expected a capability refusal, got {error}"),
         }
 
-        // Non-workspace methods are untouched by the scope.
-        let ok = scoped
-            .handle("Echo", serde_json::json!("anything"))
-            .await;
-        assert_eq!(
-            value_of(ok),
-            serde_json::json!({"method": "Echo", "space": null})
-        );
+        // Default-deny (F-B1): methods outside the allow-list never reach the
+        // engine, including executing ones and any method this build does not
+        // know. The inner Echo service would happily serve all of these —
+        // reaching it at all is the failure.
+        for method in [
+            "Echo",
+            methods::OPEN_TERMINAL,
+            methods::WRITE_TERMINAL,
+            methods::RUN_PROJECT_ACTION,
+            methods::CREATE_WORKTREE,
+            methods::DELETE_WORKTREE,
+            methods::QUEUE_MESSAGE,
+            methods::START_AGENT_LOGIN,
+            "SomeMethodAddedLater",
+        ] {
+            let refused = scoped
+                .handle(method, serde_json::json!({"chatId": "c"}))
+                .await;
+            match refused {
+                Err(RpcError::Capability(message)) => {
+                    assert!(
+                        message.contains("does not authorize"),
+                        "{method}: {message}"
+                    )
+                }
+                Ok(_) => panic!("default-deny leaked {method} to the engine"),
+                Err(error) => panic!("expected a capability refusal for {method}, got {error}"),
+            }
+        }
+
+        // The two read-only session probes are the only non-workspace pass.
+        for method in [methods::ENGINE_INFO, methods::ENGINE_READY] {
+            let ok = scoped.handle(method, serde_json::Value::Null).await;
+            assert!(
+                matches!(ok, Ok(RpcReply::Value(_))),
+                "{method} must be served"
+            );
+        }
     }
 }
