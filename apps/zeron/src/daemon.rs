@@ -33,6 +33,11 @@ const CAPTURED_ENV: &[&str] = &[
     "ZERON_HARNESS",
     "ZERON_DEVICE_NAME",
     "RUST_LOG",
+    // Background-consent switches (docs/reference/updates.md): both are
+    // opt-in and read at engine assembly, so a service installed without
+    // them stays default-off exactly like a shell run without them.
+    "ZERON_UPDATE_CHECKS",
+    "ZERON_AGENT_DISCOVERY",
 ];
 
 pub fn install(data_dir: &Path) -> anyhow::Result<()> {
@@ -399,6 +404,25 @@ mod tests {
         assert!(!unit.contains("ConditionPathExists"));
         assert!(unit.contains("EnvironmentFile=-%h/.zeron/env"));
         assert!(unit.contains("WantedBy=default.target"));
+    }
+
+    #[test]
+    fn consent_variables_are_captured_into_the_service_unit() {
+        // F-A33-1: docs/reference/updates.md documents both switches for
+        // service runs. The whitelist must carry them (only when set —
+        // captured_env filters unset keys), and an install that had them in
+        // the shell must see them as Environment lines in the unit.
+        assert!(CAPTURED_ENV.contains(&"ZERON_UPDATE_CHECKS"));
+        assert!(CAPTURED_ENV.contains(&"ZERON_AGENT_DISCOVERY"));
+        let unit = render_systemd_unit(
+            Path::new("/usr/local/bin/zeron"),
+            &[
+                ("ZERON_UPDATE_CHECKS".into(), "1".into()),
+                ("ZERON_AGENT_DISCOVERY".into(), "true".into()),
+            ],
+        );
+        assert!(unit.contains("Environment=\"ZERON_UPDATE_CHECKS=1\"\n"));
+        assert!(unit.contains("Environment=\"ZERON_AGENT_DISCOVERY=true\"\n"));
     }
 
     #[test]
