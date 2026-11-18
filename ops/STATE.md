@@ -57,9 +57,10 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Queue as of 2026-11-16 (single-integrator mode; A owns this file; supersedes
+- Queue as of 2026-11-18 (single-integrator mode; A owns this file; supersedes
   the per-task queue bullets below, which stay as history):
-  - main = 2c0141805e25ffaaa753d7ee2adde62e20fd9a7b (pushed, read back).
+  - main = f39b4d934ab53bcc924d741f0a72252805c1c0ee (before tonight's
+    checkpoint commit; read back via ls-remote each run).
   - LOCAL-002B integrated 2c014180 (PR #33 head 24bb816e3543ee9e98d05edbdbe6d8015c130645,
     worker A independent review 5913711042 APPROVED at the exact head): the engine
     no longer starts agent CLIs for unforced ListModels without consent;
@@ -758,7 +759,65 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   usage: Qwen self-hosted route only (one agent session plus deterministic
   scripts; totals UNKNOWN); no Terra/Sol/GPT from A; no retries after errors;
   no new schedules; no budget or policy changes.
-- Next action (as of 2026-11-17): worker B's queue is: re-review PR #31 head
+- Nightly run 2026-11-18 (A guard admitted OK, receipt run-2026-11-18, actual
+  start 00:00:50Z, deadline 04:00Z, freeze 03:00Z; lease local-002c-captured-env
+  opened 00:07Z on refs/heads/task/local-002c-captured-env from base f39b4d93 and
+  closed at close; refs/heads/main touched only by this checkpoint commit):
+  primary outcome LOCAL-002C built — closes F-A33-1. Branch
+  task/local-002c-captured-env, single commit
+  09419369ac9354fc98acab8786e499f8297136f8 (3 files, 71 insertions), opened as
+  PR #35 against main f39b4d93 and read back. Content: apps/zeron/src/daemon.rs
+  CAPTURED_ENV now includes ZERON_UPDATE_CHECKS and ZERON_AGENT_DISCOVERY (the
+  daemon baked whitelisted vars into the systemd/launchd unit but never gained
+  the two consent keys docs/reference/updates.md promises for service runs); new
+  pin test daemon::tests::consent_variables_are_captured_into_the_service_unit
+  (whitelist keys + rendered Environment lines); one docs sentence (install-time
+  capture, ~/.zeron/env alternative); card ops/tasks/LOCAL-002C.md. Both vars are
+  opt-in default-off, so forwarding cannot weaken the consent boundary. Risk R1,
+  A-authored, awaits B review of the exact head before integration. A-host
+  evidence (rustc 1.99.1, --locked, package-cleaned artifacts per side): RED at
+  base, bin zeron 8 passed / 0 failed, 4 daemon tests, consent test absent (log
+  SHA256 936c9d56...); GREEN at head, 9 / 0 with the consent test present and
+  passing (log 7b7aaca3...); --lib 13/0 unchanged both sides (daemon tests live
+  in the bin target, not lib); --test servers 2/0 + inherited OpenSSH ignore;
+  clippy --bin zeron exit 0, 89 inherited baseline warnings, zero in daemon.rs
+  (log ffab88ad...); rustfmt clean on daemon.rs; git diff --check clean;
+  Cargo.lock untouched. NOT RUN: UI evidence (headless host), a real zeron
+  daemon install against a live systemd unit (operator state; rendering covered
+  by tests). Evidence-hygiene fact superseding the 2026-11-10 lesson: the shared
+  CARGO_TARGET_DIR mtime-fingerprint collides across worktrees for
+  same-identity packages, and tonight it replayed stale test binaries in both
+  directions (a base run showed head artifacts; then a head run showed base
+  artifacts). Rule for both workers: cargo clean -p <touched package> before
+  each side of a base/head verification on the shared dir, and check the new
+  test's name presence, not only pass/fail counts. Controller facts tonight
+  (App-token reads): PR #31 head 4b255aef unreviewed since 2026-11-17; PR #8 head
+  18b687c1 re-review outstanding; PR #34 got review 5930213502 (COMMENTED,
+  INCOMPLETE) from umbral-labs-dev[bot] at 2026-11-17T00:05:12Z on exact head
+  df3cc6e6 with B-side logs (zeron-update passed 8ecd5000...; local_first exit
+  124 mid-compile 0b7ce161...) and provider error HTTP 400 gpt-6.1-sol not
+  supported — the same failure signature as 2026-11-13/14 before the owner
+  re-pointed B to claude-opus-5-5 on 2026-11-14: either B's route regressed or a
+  decommissioned Hermes controller still runs on B's host; B/owner-side fact,
+  posted to issue #3. Nightly usage: Qwen self-hosted route only (one agent
+  session plus deterministic scripts; totals UNKNOWN); no Terra/Sol/GPT from A;
+  no retries after errors; no new schedules; no budget or policy changes.
+- Next action (as of 2026-11-18): worker B's queue: re-review PR #35 head
+  09419369ac9354fc98acab8786e499f8297136f8 (R1, small bounded diff, quickest
+  win), re-review PR #31 head 4b255aef8760d9e31cf25c68f66b892c988d8c09 (probe
+  the default-deny scoped_method_policy and the F-A17-1 fail-open fix; B
+  committed to running the rpc/zeron suites before approving), PR #34 head
+  df3cc6e6 (R1) and PR #8 head 18b687c1. Owner input wanted on B's nightly
+  model-route regression signature (2026-11-17 INCOMPLETE with gpt-6.1-sol
+  HTTP 400). A's next bounded build: the REMOTE-002 enrollment-path grant-push
+  slice (D4 follow-up, R2, new card before code), started once B's re-review of
+  #31 head 4b255aef lands, so A-authored R2 work does not stack unmeasured.
+  Carried forward unchanged: transitive license-audit tooling decision,
+  openssh-server on A for B's real-sshd re-verification, cron timezone
+  Europe/Madrid (F-2), display path for UI evidence, F-A33-3 / B's findings 1
+  and 2 (onboarding vendor screen, baked vendor defaults, ungated
+  ListCommands) as owner decisions.
+- Next action (superseded, as of 2026-11-17): worker B's queue is: re-review PR #31 head
   4b255aef8760d9e31cf25c68f66b892c988d8c09 (B stated they will run the rpc and
   zeron suites themselves before approving — the default-deny implementation
   and the F-A17-1 fail-open fix are the two areas to probe), then PR #34 head
