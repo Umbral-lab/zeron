@@ -802,7 +802,57 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   posted to issue #3. Nightly usage: Qwen self-hosted route only (one agent
   session plus deterministic scripts; totals UNKNOWN); no Terra/Sol/GPT from A;
   no retries after errors; no new schedules; no budget or policy changes.
-- Next action (as of 2026-11-18): worker B's queue: re-review PR #35 head
+- Nightly run 2026-11-19 (A guard admitted OK, receipt run-2026-11-19, actual
+  start 00:00:51Z, deadline 04:00Z, freeze 03:00Z; lease
+  review-lane-escalation-2026-11-19 opened 00:07:31Z and closed at close;
+  refs/heads/main touched only by this checkpoint commit; refs/heads/task/*
+  NOT advanced): no product candidate was integrable — all four open candidates
+  are A-authored and none has a decisive independent review. Controller facts
+  (App-token reads): B's review 5948728122 landed 2026-11-18T00:05:18Z on PR
+  #31 exact head 4b255aef as COMMENTED/INCOMPLETE with the decommissioned-route
+  signature — model call HTTP 400 gpt-6.1-sol via Codex/ChatGPT, Hermes profile
+  path in the body, zeron-update only passing suite (log 3f9983f0...),
+  local_first exit 124 mid-compile from a from-scratch compile list in B's
+  pinned worktree (log 86d37b41...), zeron-rpc and zeron suites NOT RUN. This
+  is the second consecutive night (after 2026-11-17 PR #34 review 5930213502)
+  with that signature despite the owner's 2026-11-14 decommission (comment
+  6885182532); no review activity at all as of A's 00:07Z read tonight.
+  Escalated per AGENTS.md as a bounded decision note (issue #3 comment
+  6995420192, read back): inspect B's host for a surviving Hermes dispatch
+  pinning gpt-6.1-sol, hold A-side candidate publishing until a decisive review
+  lands, suggested decisive order #35, #31 (run the rpc/zeron suites at the
+  pinned head), #34, #8, and the 2026-11-12 B-side pinned-worktree cache-reuse
+  fix remains unfixed and is now the dominant INCOMPLETE cause even when the
+  route works. PR #31 got a review-round status comment (6995433427): head
+  stays pinned at 4b255aef, exact test names for the areas to probe corrected
+  against the branch (scoped_service_admits_only_granted_space_calls in
+  grants.rs; wire test grant_bearers_are_served_scoped_over_the_wire covering
+  OpenTerminal/RunProjectAction/QueueMessage/unknown-method refusal;
+  an_absent_grants_file_is_the_valid_pre_grant_state and
+  an_unreadable_grants_file_refuses_every_session). REMOTE-002B card drafted
+  locally only (/opt/data/state/zeron-worker-a/drafts/REMOTE-002B.md, R2,
+  hard-gated on PR #31 integration + decisive lane; D1-D5 named decisions
+  resolved against enrollment/grants code reads). Carried minor item closed:
+  tmp-fmt-tweak local branch in the remote-002 worktree deleted after
+  verifying it is an ancestor of head 4b255aef (no unpreserved work).
+  Toolchain preflight re-verified warm on A's host (cargo 1.99.1, openssl ok,
+  GPUI apt packages present, shared target dir intact); no cargo build or test
+  was required for this outcome and none was run. NOT RUN: any build/test
+  execution this run (none applicable), UI evidence (headless), B-host state.
+  Nightly usage: Qwen self-hosted route only (one agent session plus
+  deterministic scripts; totals UNKNOWN); no Terra/Sol/GPT from A; no retries
+  after errors; no new schedules; no budget or policy changes.
+- Next action (as of 2026-11-19): blocked lane, bounded holds. If B delivers a
+  decisive review: integrate #35 head 09419369 (R1) or act on #31 findings at
+  head 4b255aef under lease, then #34 and #8 in that order; REMOTE-002B starts
+  only after #31 integrates (draft card ready). If the lane stays dead a third
+  consecutive night after this decision note, A runs the scheduled seven-night
+  continue/narrow/pause assessment early and builds nothing new. Owner
+  decisions open (unchanged unless stated): inspect B's host Hermes dispatch
+  (new, from the decision note), transitive license-audit tooling,
+  openssh-server on A, cron timezone Europe/Madrid (F-2), display path for UI
+  evidence, F-B5, F-A33-3, F-A33-2 (B-owned fix) and B's findings 1-2.
+- Next action (superseded, as of 2026-11-18): worker B's queue: re-review PR #35 head
   09419369ac9354fc98acab8786e499f8297136f8 (R1, small bounded diff, quickest
   win), re-review PR #31 head 4b255aef8760d9e31cf25c68f66b892c988d8c09 (probe
   the default-deny scoped_method_policy and the F-A17-1 fail-open fix; B
