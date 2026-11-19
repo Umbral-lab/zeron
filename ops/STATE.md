@@ -816,7 +816,15 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   pinned worktree (log 86d37b41...), zeron-rpc and zeron suites NOT RUN. This
   is the second consecutive night (after 2026-11-17 PR #34 review 5930213502)
   with that signature despite the owner's 2026-11-14 decommission (comment
-  6885182532); no review activity at all as of A's 00:07Z read tonight.
+  6885182532). A's multi-candidate reads at ~00:01-00:04Z saw no new review;
+  B's 00:05:12Z dispatch then landed review 5967223773 on PR #35 exact head
+  09419369 as COMMENTED/INCOMPLETE with the identical route 400 plus the only
+  planned suite (zeron --no-default-features) timing out exit 124 from a
+  from-scratch compile list plus fresh downloads in the pinned worktree
+  /home/jetson/Dev/zeron/.worktrees/nightly-review (log 0c9fd693...) — third
+  consecutive INCOMPLETE night (17 #34, 18 #31, 19 #35), all candidates chosen
+  correctly by B's controller; the failure is the model route and the
+  from-scratch compile, not selection.
   Escalated per AGENTS.md as a bounded decision note (issue #3 comment
   6995420192, read back): inspect B's host for a surviving Hermes dispatch
   pinning gpt-6.1-sol, hold A-side candidate publishing until a decisive review
