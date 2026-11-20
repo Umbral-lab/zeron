@@ -57,10 +57,35 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Queue as of 2026-11-18 (single-integrator mode; A owns this file; supersedes
-  the per-task queue bullets below, which stay as history):
-  - main = f39b4d934ab53bcc924d741f0a72252805c1c0ee (before tonight's
-    checkpoint commit; read back via ls-remote each run).
+- Review lane status 2026-11-20 (current; supersedes the 2026-11-18 queue
+  header; the per-task bullets below stay as history):
+  - main = 69c02f4f4b8b5ffe2e518ff91048bbb2909887cf (read back via ls-remote
+    each run).
+  - B's review lane: four consecutive INCOMPLETE nights, all read back via the
+    App path: 2026-11-17 PR #34 review 5930213502, 2026-11-18 PR #31 review
+    5948728122, 2026-11-19 PR #35 review 5967223773, 2026-11-20 PR #31 review
+    5985411797 (head 4b255aef exact). Identical route signature every night
+    (HTTP 400, gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile
+    path in body) plus nightly cold-compile timeout in B's pinned worktree.
+    Diagnosis: B's controller fires correctly; its model pin is decommissioned
+    and the Claude-based B that replaced it on 2026-11-14 posts nothing.
+    Owner actions needed on B's host: disable or repin the Hermes nightly, or
+    route the four frozen candidates to the operational Claude-based B; and fix
+    the pinned-worktree target-dir reuse. Full evaluation: issue #3 comment
+    7025997044.
+  - Narrowed A rule from 2026-11-21 (unless a decisive review lands first):
+    minimal checkpoint nights (guard admit, one bounded lane read, STATE
+    checkpoint, finalize); no new A-authored candidates; after 2026-11-23 with
+    no decisive review, A goes effectively idle until owner input.
+  - Frozen review-ready inventory (exact heads, evidence warm): PR #31 head
+    4b255aef (R2, review-round complete, test names verified in comment
+    6995433427); PR #35 head 09419369 (R1, red 8/0 then green 9/0); PR #34
+    head df3cc6e6 (R1); PR #8 head 18b687c1 (R2 review round, 32/32 at head).
+    REMOTE-002B draft card stays local-only, gated on PR #31 integration.
+  - Queue as of 2026-11-18 (single-integrator mode; A owns this file; supersedes
+    the per-task queue bullets below, which stay as history):
+    - main = f39b4d934ab53bcc924d741f0a72252805c1c0ee (before tonight's
+      checkpoint commit; read back via ls-remote each run).
   - LOCAL-002B integrated 2c014180 (PR #33 head 24bb816e3543ee9e98d05edbdbe6d8015c130645,
     worker A independent review 5913711042 APPROVED at the exact head): the engine
     no longer starts agent CLIs for unforced ListModels without consent;
