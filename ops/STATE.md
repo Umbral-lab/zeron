@@ -57,26 +57,31 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Review lane status 2026-11-20 (current; supersedes the 2026-11-18 queue
+- Review lane status 2026-11-21 (current; supersedes the 2026-11-18 queue
   header; the per-task bullets below stay as history):
-  - main = 69c02f4f4b8b5ffe2e518ff91048bbb2909887cf (read back via ls-remote
+  - main = 740d4026a9c626c843659e7c27db3ba7eaad7f8e (read back via ls-remote
     each run).
-  - B's review lane: four consecutive INCOMPLETE nights, all read back via the
+  - B's review lane: five consecutive INCOMPLETE nights, all read back via the
     App path: 2026-11-17 PR #34 review 5930213502, 2026-11-18 PR #31 review
     5948728122, 2026-11-19 PR #35 review 5967223773, 2026-11-20 PR #31 review
-    5985411797 (head 4b255aef exact). Identical route signature every night
-    (HTTP 400, gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile
-    path in body) plus nightly cold-compile timeout in B's pinned worktree.
-    Diagnosis: B's controller fires correctly; its model pin is decommissioned
-    and the Claude-based B that replaced it on 2026-11-14 posts nothing.
-    Owner actions needed on B's host: disable or repin the Hermes nightly, or
-    route the four frozen candidates to the operational Claude-based B; and fix
-    the pinned-worktree target-dir reuse. Full evaluation: issue #3 comment
-    7025997044.
-  - Narrowed A rule from 2026-11-21 (unless a decisive review lands first):
-    minimal checkpoint nights (guard admit, one bounded lane read, STATE
-    checkpoint, finalize); no new A-authored candidates; after 2026-11-23 with
-    no decisive review, A goes effectively idle until owner input.
+    5985411797, 2026-11-21 PR #31 review 6001069820 (head 4b255aef exact, run
+    zeron:B:2026-11-21). Identical route signature every night (HTTP 400,
+    gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile path in body)
+    plus nightly cold-compile timeout in B's pinned worktree; on 11-21 the
+    suites that matter for #31 (zeron-rpc, zeron --no-default-features) were
+    not_run. Diagnosis unchanged: B's controller fires correctly; its model
+    pin is decommissioned and the Claude-based B that replaced it on
+    2026-11-14 posts nothing. Owner actions needed on B's host: disable or
+    repin the Hermes nightly, or route the four frozen candidates to the
+    operational Claude-based B; and fix the pinned-worktree target-dir reuse.
+    Full evaluation: issue #3 comment 7025997044; fifth-night evidence
+    comment 7053812682.
+  - Narrowed A rule active from 2026-11-21 (minimal checkpoint nights: guard
+    admit, one bounded lane read, STATE checkpoint, finalize; no new
+    A-authored candidates). 2026-11-21 ran in this mode with the lane still
+    non-decisive; if 2026-11-22 and 2026-11-23 are also non-decisive, A goes
+    effectively idle from 2026-11-24 until owner input. A decisive review
+    still lifts the hold immediately.
   - Frozen review-ready inventory (exact heads, evidence warm): PR #31 head
     4b255aef (R2, review-round complete, test names verified in comment
     6995433427); PR #35 head 09419369 (R1, red 8/0 then green 9/0); PR #34
@@ -875,12 +880,34 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   Nightly usage: Qwen self-hosted route only (one agent session plus
   deterministic scripts; totals UNKNOWN); no Terra/Sol/GPT from A; no retries
   after errors; no new schedules; no budget or policy changes.
-- Next action (as of 2026-11-19): blocked lane, bounded holds. If B delivers a
+- Nightly run 2026-11-20: fourth consecutive lane night; published the
+  continue/narrow/pause assessment as issue #3 comment 7025997044 (CONTINUE
+  rejected, ESTRECHAR adopted: minimal checkpoint nights from 2026-11-21,
+  near-idle from 2026-11-24 without a decisive review; PAUSE of A's schedule
+  is owner-only). Checkpoint 92314a0e + report 740d4026. Details in the
+  review lane status above and the morning reports on main.
+- Nightly run 2026-11-21 (A guard admitted OK 00:00:35Z, deadline 04:00Z,
+  freeze 03:00Z, receipt run-2026-11-21 0600 outside Git; lease
+  minimal-checkpoint-2026-11-21 opened 00:08:30Z on refs/heads/main from base
+  740d4026 and closed at close): first narrowed minimal-checkpoint night.
+  B's dispatch landed 00:05:10Z — PR #31 review 6001069820 COMMENTED/INCOMPLETE
+  at exact head 4b255aef, fifth consecutive night with the identical signature
+  (model call HTTP 400 gpt-6.1-sol via Codex/ChatGPT; zeron-update passed log
+  f4e1cd73...; local_first exit 124 from-scratch compile log 9bed6ccf...;
+  zeron-rpc and zeron --no-default-features not_run). No owner input since
+  comment 7025997044. Lane evidence posted as issue #3 comment 7053812682
+  (read back). No build or test run on A's host (nothing applicable under the
+  hold; recording PASS would have been false); UI evidence NOT RUN (headless).
+  Nothing integrated; no new candidate published; refs/heads/main advanced only
+  by this checkpoint commit.
+- Next action (as of 2026-11-21, narrowed mode): minimal checkpoint nights
+  2026-11-21..2026-11-23; if all three stay non-decisive, A runs near-idle
+  nights from 2026-11-24 (guard admit, one bounded lane read, finalize; no
+  comments unless new facts) until owner input. If B delivers a
   decisive review: integrate #35 head 09419369 (R1) or act on #31 findings at
   head 4b255aef under lease, then #34 and #8 in that order; REMOTE-002B starts
-  only after #31 integrates (draft card ready). If the lane stays dead a third
-  consecutive night after this decision note, A runs the scheduled seven-night
-  continue/narrow/pause assessment early and builds nothing new. Owner
+  only after #31 integrates (draft card ready). The continue/narrow/pause
+  assessment was already published 2026-11-20 (comment 7025997044). Owner
   decisions open (unchanged unless stated): inspect B's host Hermes dispatch
   (new, from the decision note), transitive license-audit tooling,
   openssh-server on A, cron timezone Europe/Madrid (F-2), display path for UI
