@@ -5036,6 +5036,7 @@ mod tests {
             listener,
             Arc::new(LegacyIdentityRpc),
             token,
+            None,
         ));
         let handle = EngineHandle::bootstrap(EngineBootConfig {
             data_dir: dir.path().to_path_buf(),
@@ -5162,6 +5163,7 @@ mod tests {
                 state: state_rx,
             }),
             token,
+            None,
         ));
 
         let handle = EngineHandle::bootstrap(EngineBootConfig {
@@ -5501,6 +5503,7 @@ mod tests {
             listener,
             core.rpc_service(),
             token,
+            None,
         ));
 
         let handle = EngineHandle::bootstrap(EngineBootConfig {
