@@ -28,6 +28,9 @@ what is already known locally. Explicit actions — "Check for Updates…",
 CLI — are your request, not the app's, and work with the background check
 off. Consent is read once when the checker starts, so a value exported in the service
 environment or the desktop session is the one that counts for that process.
+`zeron daemon install` bakes `ZERON_UPDATE_CHECKS` and `ZERON_AGENT_DISCOVERY`
+from the install shell into the service unit (as it does for the other
+`ZERON_*` overrides); you can also set them in `~/.zeron/env`.
 
 Agent CLIs (Claude Code, Codex and the others) are third-party programs that
 contact their provider when they start. Zeron starts one to list its models only
