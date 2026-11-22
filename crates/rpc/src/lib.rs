@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 mod client;
 pub mod device_room;
+pub mod grants;
 pub mod ipc_auth;
 mod server;
 pub mod ssh;
@@ -538,6 +539,13 @@ mod tests {
         ) -> Result<RpcReply, RpcError> {
             match method {
                 "Echo" => Ok(RpcReply::Value(params)),
+                methods::LIST_WORKSPACE_DIRECTORY => {
+                    // Fixture stand-in for the engine's workspace dispatch: a
+                    // granted call reaches here and echoes its target.
+                    RpcReply::value(&serde_json::json!({
+                        "space": params.get("spaceId"),
+                    }))
+                }
                 "Count" => {
                     let n = params.get("n").and_then(|v| v.as_u64()).unwrap_or(0);
                     Ok(RpcReply::Stream(
@@ -726,6 +734,7 @@ mod tests {
             listener,
             Arc::new(TestService),
             token.to_string(),
+            None,
         ));
         port
     }
@@ -890,6 +899,158 @@ mod tests {
         assert_eq!(
             client.call("Echo", serde_json::json!(7)).await.unwrap(),
             serde_json::json!(7)
+        );
+    }
+
+    /// Serve `TestService` behind `token` with a grants file at `grants`.
+    async fn serve_test_with_grants(token: &str, grants: &std::path::Path) -> u16 {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(serve_ws_listener(
+            listener,
+            Arc::new(TestService),
+            token.to_string(),
+            Some(grants.to_path_buf()),
+        ));
+        port
+    }
+
+    #[tokio::test]
+    async fn grant_bearers_are_served_scoped_over_the_wire() {
+        let dir = tempfile::tempdir().unwrap();
+        let grants = grants::grants_path(dir.path());
+        let main = ipc_auth::generate_token().unwrap();
+        let grant_token = ipc_auth::generate_token().unwrap();
+        grants::write_grants(
+            &grants,
+            &grants::GrantsFile {
+                format_version: grants::GRANTS_FORMAT_VERSION,
+                grants: vec![grants::GrantRecord {
+                    name: "desk.work".into(),
+                    token: grant_token.clone(),
+                    space_ids: vec!["space-1".into()],
+                }],
+            },
+        )
+        .unwrap();
+        let url = format!(
+            "ws://127.0.0.1:{}",
+            serve_test_with_grants(&main, &grants).await
+        );
+
+        // The grant bearer is a real session…
+        let scoped = connect_ws(&url, Some(&grant_token)).await.unwrap();
+        let ok = scoped
+            .call(
+                methods::LIST_WORKSPACE_DIRECTORY,
+                serde_json::json!({"spaceId": "space-1"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ok, serde_json::json!({"space": "space-1"}));
+
+        // …but a workspace outside its allow-set is refused server-side, and
+        // the refusal reaches the client as a capability error.
+        let error = match scoped
+            .call(
+                methods::LIST_WORKSPACE_DIRECTORY,
+                serde_json::json!({"spaceId": "space-other"}),
+            )
+            .await
+        {
+            Ok(reply) => panic!("a non-granted workspace must not be served: {reply:?}"),
+            Err(error) => error.to_string(),
+        };
+        assert!(error.contains("not authorized"), "{error}");
+
+        // Default-deny (finding F-B1): a grant bearer is refused everything
+        // outside the allow-list, proven over the real wire — executing
+        // methods, chat sends, and a method the fixture has never heard of.
+        for method in [
+            "Echo",
+            methods::OPEN_TERMINAL,
+            methods::RUN_PROJECT_ACTION,
+            methods::QUEUE_MESSAGE,
+            "SomeMethodAddedLater",
+        ] {
+            match scoped
+                .call(method, serde_json::json!({"chatId": "c"}))
+                .await
+            {
+                Ok(reply) => panic!("default-deny leaked {method} over the wire: {reply:?}"),
+                Err(error) => assert!(
+                    error.to_string().contains("does not authorize"),
+                    "{method}: {error}"
+                ),
+            }
+        }
+
+        // The main ipc-token still reaches everything, byte-compatible with
+        // pre-grant behavior even while a grants file is present.
+        let full = connect_ws(&url, Some(&main)).await.unwrap();
+        assert_eq!(
+            full.call("Echo", serde_json::json!("x")).await.unwrap(),
+            serde_json::json!("x")
+        );
+        assert_eq!(
+            full.call(
+                methods::LIST_WORKSPACE_DIRECTORY,
+                serde_json::json!({"spaceId": "space-other"}),
+            )
+            .await
+            .unwrap(),
+            serde_json::json!({"space": "space-other"})
+        );
+        assert_eq!(
+            handshake_status(
+                listener_port(&url),
+                &[("authorization", &format!("Bearer {main}"))]
+            )
+            .await,
+            None
+        );
+    }
+
+    fn listener_port(url: &str) -> u16 {
+        url.rsplit(':').next().unwrap().parse().unwrap()
+    }
+
+    #[tokio::test]
+    async fn an_unreadable_grants_file_refuses_every_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let grants = grants::grants_path(dir.path());
+        std::fs::write(&grants, "{\"formatVersion\":99,\"grants\":[]}").unwrap();
+        let main = ipc_auth::generate_token().unwrap();
+        let port = serve_test_with_grants(&main, &grants).await;
+
+        // Fail closed: even the main bearer is not served while the grants
+        // file exists but cannot be understood.
+        assert_eq!(
+            handshake_status(port, &[("authorization", &format!("Bearer {main}"))]).await,
+            Some(503),
+            "a corrupt grants file must not serve any session"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_absent_grants_file_is_the_valid_pre_grant_state() {
+        let dir = tempfile::tempdir().unwrap();
+        // The grants path is wired on every engine start, but no `grant-add`
+        // has ever run: the file simply does not exist. This is NOT a failure
+        // (finding F-A17-1: conflating it with a corrupt file made a default
+        // install refuse its own IPC sessions).
+        let grants = grants::grants_path(dir.path());
+        let main = ipc_auth::generate_token().unwrap();
+        let port = serve_test_with_grants(&main, &grants).await;
+
+        let url = format!("ws://127.0.0.1:{port}/rpc");
+        let client = connect_ws(&url, Some(&main)).await.unwrap();
+        assert_eq!(
+            client
+                .call("Echo", serde_json::json!("pre-grant"))
+                .await
+                .unwrap(),
+            serde_json::json!("pre-grant")
         );
     }
 
