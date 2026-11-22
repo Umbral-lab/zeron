@@ -57,29 +57,33 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Review lane status 2026-11-21 (current; supersedes the 2026-11-18 queue
+- Review lane status 2026-11-22 (current; supersedes the 2026-11-18 queue
   header; the per-task bullets below stay as history):
-  - main = 740d4026a9c626c843659e7c27db3ba7eaad7f8e (read back via ls-remote
+  - main = 7e704bb7e189caece76227a6a758e3af4b2274a1 (read back via ls-remote
     each run).
-  - B's review lane: five consecutive INCOMPLETE nights, all read back via the
+  - B's review lane: six consecutive INCOMPLETE nights, all read back via the
     App path: 2026-11-17 PR #34 review 5930213502, 2026-11-18 PR #31 review
     5948728122, 2026-11-19 PR #35 review 5967223773, 2026-11-20 PR #31 review
-    5985411797, 2026-11-21 PR #31 review 6001069820 (head 4b255aef exact, run
-    zeron:B:2026-11-21). Identical route signature every night (HTTP 400,
-    gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile path in body)
-    plus nightly cold-compile timeout in B's pinned worktree; on 11-21 the
-    suites that matter for #31 (zeron-rpc, zeron --no-default-features) were
-    not_run. Diagnosis unchanged: B's controller fires correctly; its model
-    pin is decommissioned and the Claude-based B that replaced it on
-    2026-11-14 posts nothing. Owner actions needed on B's host: disable or
-    repin the Hermes nightly, or route the four frozen candidates to the
-    operational Claude-based B; and fix the pinned-worktree target-dir reuse.
-    Full evaluation: issue #3 comment 7025997044; fifth-night evidence
-    comment 7053812682.
+    5985411797, 2026-11-21 PR #31 review 6001069820, 2026-11-22 PR #31 review
+    6009054570 (head 4b255aef exact, target base dff88c22, run
+    zeron:B:2026-11-22). Nights 17-21 carried the identical route signature
+    (HTTP 400, gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile
+    path in body) plus a nightly cold-compile timeout in B's pinned worktree;
+    on 11-22 the explicit route-400 text is absent from B's body - it states
+    "No final model review available" plus "Worker interrupted or failed" -
+    so the model-review call still produced no reasoning, but A cannot verify
+    the cause from its side. zeron-update passed (log dae6f93b...); local_first
+    exit 124 from-scratch compile (log 3a58a467...); the suites that matter
+    for #31 (zeron-rpc, zeron --no-default-features) not_run again. Owner
+    actions needed on B's host: establish why the nightly review dispatch
+    still lands with no model review (route state unverifiable from A), and
+    fix the pinned-worktree target-dir reuse. Full evaluation: issue #3
+    comment 7025997044; fifth-night evidence comment 7053812682; sixth-night
+    evidence comment 7071340812.
   - Narrowed A rule active from 2026-11-21 (minimal checkpoint nights: guard
     admit, one bounded lane read, STATE checkpoint, finalize; no new
-    A-authored candidates). 2026-11-21 ran in this mode with the lane still
-    non-decisive; if 2026-11-22 and 2026-11-23 are also non-decisive, A goes
+    A-authored candidates). 2026-11-21 and 2026-11-22 ran in this mode with
+    the lane non-decisive; if 2026-11-23 is also non-decisive, A goes
     effectively idle from 2026-11-24 until owner input. A decisive review
     still lifts the hold immediately.
   - Frozen review-ready inventory (exact heads, evidence warm): PR #31 head
@@ -900,7 +904,38 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   hold; recording PASS would have been false); UI evidence NOT RUN (headless).
   Nothing integrated; no new candidate published; refs/heads/main advanced only
   by this checkpoint commit.
-- Next action (as of 2026-11-21, narrowed mode): minimal checkpoint nights
+- Nightly run 2026-11-22 (A guard admitted OK 00:00:56Z, deadline 04:00Z,
+  freeze 03:00Z, receipt run-2026-11-22 0600 outside Git; lease
+  minimal-checkpoint-2026-11-22 opened 00:02:30Z on refs/heads/main from base
+  7e704bb7 and closed at close): second narrowed minimal-checkpoint night.
+  Lane read via App path: no new facts at 00:01-00:02Z; delta read after the
+  dispatch window showed B's review 6009054570 landing 00:05:05Z on PR #31
+  exact head 4b255aef (target base dff88c22), COMMENTED/INCOMPLETE - sixth
+  consecutive night without a model review. Body signature changed from the
+  17-21 nights: no explicit HTTP 400 gpt-6.1-sol text; instead "No final
+  model review available" and "Worker interrupted or failed"; zeron-update
+  passed (dae6f93b...), local_first exit 124 from-scratch compile in B's
+  pinned worktree (3a58a467...), zeron-rpc and zeron --no-default-features
+  not_run. No owner input since comment 7025997044 (no new comments on issue
+  #3 or the four candidate PRs). Lane evidence posted as issue #3 comment
+  7071340812 (read back). No build or test run on A's host (nothing
+  applicable under the hold; recording PASS would have been false); UI
+  evidence NOT RUN (headless). Nothing integrated; no new candidate published;
+  refs/heads/main advanced only by this checkpoint commit.
+- Next action (as of 2026-11-22, narrowed mode): one narrowed minimal-checkpoint
+  night remains, 2026-11-23; if it is also non-decisive, A runs near-idle
+  nights from 2026-11-24 (guard admit, one bounded lane read, finalize; no
+  comments unless new facts) until owner input. If B delivers a
+  decisive review: integrate #35 head 09419369 (R1) or act on #31 findings at
+  head 4b255aef under lease, then #34 and #8 in that order; REMOTE-002B starts
+  only after #31 integrates (draft card ready). Owner decisions open
+  (unchanged unless stated): establish on B's host why the nightly review
+  dispatch lands with no model review (the 17-21 route-400 signature changed
+  on 11-22 to a no-final-review body; cause unverifiable from A) and fix the
+  pinned-worktree cache reuse; transitive license-audit tooling;
+  openssh-server on A; cron timezone Europe/Madrid (F-2); display path for UI
+  evidence; F-B5; F-A33-3; F-A33-2 (B-owned fix) and B's findings 1-2.
+- Next action (superseded, as of 2026-11-21, narrowed mode): minimal checkpoint nights
   2026-11-21..2026-11-23; if all three stay non-decisive, A runs near-idle
   nights from 2026-11-24 (guard admit, one bounded lane read, finalize; no
   comments unless new facts) until owner input. If B delivers a
