@@ -57,35 +57,28 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
 
 ## Current position (worker A; supersedes the earlier 2026-10-30/31 overlays; imported prefix bytes preserved)
 
-- Review lane status 2026-11-22 (current; supersedes the 2026-11-18 queue
+- Review lane status 2026-11-23 (current; supersedes the 2026-11-22 lane
   header; the per-task bullets below stay as history):
-  - main = 7e704bb7e189caece76227a6a758e3af4b2274a1 (read back via ls-remote
+  - main = 468b33d410c8f2c8ec08f55b5d37e3486bdd521a (read back via ls-remote
     each run).
-  - B's review lane: six consecutive INCOMPLETE nights, all read back via the
-    App path: 2026-11-17 PR #34 review 5930213502, 2026-11-18 PR #31 review
-    5948728122, 2026-11-19 PR #35 review 5967223773, 2026-11-20 PR #31 review
-    5985411797, 2026-11-21 PR #31 review 6001069820, 2026-11-22 PR #31 review
-    6009054570 (head 4b255aef exact, target base dff88c22, run
-    zeron:B:2026-11-22). Nights 17-21 carried the identical route signature
-    (HTTP 400, gpt-6.1-sol not supported via Codex/ChatGPT, Hermes profile
-    path in body) plus a nightly cold-compile timeout in B's pinned worktree;
-    on 11-22 the explicit route-400 text is absent from B's body - it states
-    "No final model review available" plus "Worker interrupted or failed" -
-    so the model-review call still produced no reasoning, but A cannot verify
-    the cause from its side. zeron-update passed (log dae6f93b...); local_first
-    exit 124 from-scratch compile (log 3a58a467...); the suites that matter
-    for #31 (zeron-rpc, zeron --no-default-features) not_run again. Owner
-    actions needed on B's host: establish why the nightly review dispatch
-    still lands with no model review (route state unverifiable from A), and
-    fix the pinned-worktree target-dir reuse. Full evaluation: issue #3
-    comment 7025997044; fifth-night evidence comment 7053812682; sixth-night
-    evidence comment 7071340812.
-  - Narrowed A rule active from 2026-11-21 (minimal checkpoint nights: guard
-    admit, one bounded lane read, STATE checkpoint, finalize; no new
-    A-authored candidates). 2026-11-21 and 2026-11-22 ran in this mode with
-    the lane non-decisive; if 2026-11-23 is also non-decisive, A goes
-    effectively idle from 2026-11-24 until owner input. A decisive review
-    still lifts the hold immediately.
+  - B's review lane: seven consecutive non-decisive nights. 2026-11-17 PR #34
+    review 5930213502, 2026-11-18 PR #31 review 5948728122, 2026-11-19 PR #35
+    review 5967223773, 2026-11-20 PR #31 review 5985411797, 2026-11-21 PR #31
+    review 6001069820, 2026-11-22 PR #31 review 6009054570 (head 4b255aef
+    exact, target base dff88c22) - all COMMENTED/INCOMPLETE via App reads.
+    On 2026-11-23 the signature changed again: the nightly dispatch produced
+    no landing at all. App-path reads at 00:03Z/00:07Z/00:11Z/00:14Z showed
+    zero new reviews on all four candidates, zero new repo-wide comments
+    (newest comment repo-wide was A's own 2026-11-22T00:08:21Z), open-PR
+    updated_at frozen at their last landings, and ls-remote refs unchanged.
+    The dispatch may no longer reach its publication step or B's timer no
+    longer fires - cause verifiable only in B's host logs. Evidence: issue #3
+    comment 7088193402.
+  - Narrowed A rule ran 2026-11-21..2026-11-23 (the full narrowed window from
+    the 2026-11-20 assessment); all three nights non-decisive. Per the adopted
+    plan, from 2026-11-24 A runs near-idle nights (guard admit, one bounded
+    lane read, finalize; no comments unless new facts) until owner input. A
+    decisive review still lifts the hold immediately.
   - Frozen review-ready inventory (exact heads, evidence warm): PR #31 head
     4b255aef (R2, review-round complete, test names verified in comment
     6995433427); PR #35 head 09419369 (R1, red 8/0 then green 9/0); PR #34
@@ -922,7 +915,35 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   applicable under the hold; recording PASS would have been false); UI
   evidence NOT RUN (headless). Nothing integrated; no new candidate published;
   refs/heads/main advanced only by this checkpoint commit.
-- Next action (as of 2026-11-22, narrowed mode): one narrowed minimal-checkpoint
+- Nightly run 2026-11-23 (A guard admitted OK 00:00:45Z, deadline 04:00Z,
+  freeze 03:00Z, receipt run-2026-11-23 0600 outside Git; lease
+  minimal-checkpoint-2026-11-23 opened 00:04Z on refs/heads/main from base
+  468b33d4 and closed at close): final narrowed minimal-checkpoint night.
+  Lane reads via the App path at 00:03Z, 00:07Z, 00:11Z and a final bounded
+  repo-wide read at 00:14Z: the nightly review dispatch landed nothing at all
+  - zero new reviews on PRs #31/#35/#34/#8, zero new comments repo-wide,
+  open-PR updated_at frozen, main and all five task refs unchanged
+  (ls-remote). Seventh consecutive non-decisive night; first night with no
+  dispatch landing (17-22 each landed an INCOMPLETE review ~00:05Z). No owner
+  input since comment 7025997044. Lane evidence posted as issue #3 comment
+  7088193402 (read back, david-noether[bot]). No build or test run on A's
+  host (nothing applicable under the hold; recording PASS would have been
+  false); UI evidence NOT RUN (headless). Nothing integrated; no new candidate
+  published; refs/heads/main advanced only by this checkpoint and report.
+- Next action (as of 2026-11-23, narrowed window exhausted): from 2026-11-24
+  A runs near-idle nights - guard admission, one bounded lane read, finalize,
+  no comments unless new facts, no builds, no candidate publishing, no
+  integration - until owner input or a decisive review lands. If a decisive
+  review lands: integrate in order #35 head 09419369 (R1), #31 head 4b255aef
+  (R2), #34 head df3cc6e6, #8 head 18b687c1; REMOTE-002B starts only after
+  #31 integrates (draft card ready). Owner actions with increased weight
+  (seventh night, signature now a missing dispatch): on B's host establish
+  why the nightly review dispatch no longer produces any landing (check the
+  timer/fire and the publication step in B's host logs), and fix the
+  pinned-worktree cache reuse. Still open: transitive license-audit tooling,
+  openssh-server on A, cron timezone Europe/Madrid (F-2), display path for UI
+  evidence, F-B5, F-A33-3, F-A33-2 (B-owned fix) and B's findings 1-2.
+- Next action (superseded, as of 2026-11-22, narrowed mode): one narrowed minimal-checkpoint
   night remains, 2026-11-23; if it is also non-decisive, A runs near-idle
   nights from 2026-11-24 (guard admit, one bounded lane read, finalize; no
   comments unless new facts) until owner input. If B delivers a
