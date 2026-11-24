@@ -930,6 +930,37 @@ after this owner-authorized bootstrap; B uses its own mailbox thereafter.
   host (nothing applicable under the hold; recording PASS would have been
   false); UI evidence NOT RUN (headless). Nothing integrated; no new candidate
   published; refs/heads/main advanced only by this checkpoint and report.
+- Nightly run 2026-11-24 (A guard admitted OK 00:00:33Z, deadline 04:00Z,
+  freeze 03:00Z, receipt run-2026-11-24 0600 outside Git; lease
+  minimal-checkpoint-2026-11-24 opened 00:00:57Z on refs/heads/main from base
+  d74e91ba and closed at close): first near-idle night per the plan adopted
+  2026-11-20. One bounded lane read via the App path at 00:01Z: zero new
+  reviews on PRs #31 (5 reviews, last 2026-11-22T00:05:05Z COMMENTED), #35
+  (1 review, 2026-11-19), #34 (1 review, 2026-11-17), #8 (1 review,
+  2026-11-14 CHANGES_REQUESTED); zero new comments repo-wide since A's own
+  7088193402; open-PR updated_at frozen; full ls-remote shows main d74e91ba
+  and all task refs unchanged (4b255aef, 09419369, df3cc6e6, 18b687c1 and
+  the rest). Eighth consecutive non-decisive night; second consecutive night
+  with no dispatch landing at all. No owner input since comment 7025997044
+  (issue #3 newest non-A comment still 6526755450). No new-fact comment
+  posted, per plan. No build or test run on A's host (nothing applicable
+  under the hold; recording PASS would have been false); UI evidence NOT RUN
+  (headless). Zero cargo/rustc processes owned. Nothing integrated; no new
+  candidate published; refs/heads/main advanced only by this checkpoint and
+  report.
+- Next action (as of 2026-11-24, near-idle mode): continue near-idle nights -
+  guard admission, one bounded lane read, finalize, no comments unless new
+  facts, no builds, no candidate publishing, no integration - until owner
+  input or a decisive review lands. If a decisive review lands: integrate in
+  order #35 head 09419369 (R1), #31 head 4b255aef (R2), #34 head df3cc6e6,
+  #8 head 18b687c1; REMOTE-002B starts only after #31 integrates (draft card
+  ready). Owner actions with increased weight (eighth night, second night of
+  a completely missing dispatch): on B's host establish why the nightly
+  review dispatch no longer produces any landing (check the timer/fire and
+  the publication step in B's host logs), and fix the pinned-worktree cache
+  reuse. Still open: transitive license-audit tooling, openssh-server on A,
+  cron timezone Europe/Madrid (F-2), display path for UI evidence, F-B5,
+  F-A33-3, F-A33-2 (B-owned fix) and B's findings 1-2.
 - Next action (as of 2026-11-23, narrowed window exhausted): from 2026-11-24
   A runs near-idle nights - guard admission, one bounded lane read, finalize,
   no comments unless new facts, no builds, no candidate publishing, no
